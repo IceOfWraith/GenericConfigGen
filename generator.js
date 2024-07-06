@@ -23,8 +23,14 @@ function downloadString(data, filename)
 class generatorViewModel {
     constructor() {
         var self = this;
+<<<<<<< Updated upstream
 
         this.Meta_DisplayName = ko.observable("");
+=======
+        this._availablePortOptions = ko.observableArray(['Custom Port', 'Main Game Port', 'Steam Query Port', 'RCON Port']);
+        this._compatibility = ko.observable("None");
+        this.Meta_DisplayName = ko.observable("").extend({ required: true });
+>>>>>>> Stashed changes
         this.Meta_Description = ko.observable("");
         this.Meta_Author = ko.observable("");
         this.Meta_URL = ko.observable("");
@@ -218,7 +224,50 @@ class generatorViewModel {
             $("#addEditSettingModal").modal('hide');
         };
 
+<<<<<<< Updated upstream
         this.__Serialize = function() {
+=======
+        this.__RemoveStage = function (toRemove) {
+            self._UpdateStages.remove(toRemove);
+        };
+
+        this.__EditStage = function (toEdit) {
+            self.__IsEditingStage(true);
+            self.__AddEditStage(toEdit);
+            $("#addEditStageModal").modal('show');
+        };
+
+        this.__AddStage = function () {
+            self.__IsEditingStage(false);
+            self.__AddEditStage(new updateStageViewModel(self));
+            $("#addEditStageModal").modal('show');
+        };
+        this.Errors = ko.validation.group(self);
+        this.isValid = ko.computed(function () {
+            return self.Errors().length == 0;
+        });
+        this.ErrorsUpdates = ko.validation.group(updateStageViewModel);
+        this.isValid = ko.computed(function () {
+            return self.ErrorsUpdates().length == 0;
+        });
+        
+        this.__DoAddStage = function () {
+            if (self.ErrorsUpdates().length === 0) {
+                self._UpdateStages.push(self.__AddEditStage());
+                $("#addEditStageModal").modal('hide');
+            } else {
+                alert('Please check your submission.');
+                self.ErrorsUpdates.showAllMessages();
+
+            }
+        };
+
+        this.__CloseStage = function () {
+            $("#addEditStageModal").modal('hide');
+        };
+
+        this.__Serialize = function () {
+>>>>>>> Stashed changes
             var asJS = ko.toJS(self);
             var result = JSON.stringify(asJS, omitPrivateMembers);
             return result;
@@ -346,6 +395,7 @@ class generatorViewModel {
         this.__ValidationResult = ko.observable(0);
 
         this.__ValidationResults = ko.observableArray();
+<<<<<<< Updated upstream
 
         this.__ValidateConfig = function(){
             autoSave();
@@ -429,6 +479,53 @@ class generatorViewModel {
             if (self.Console_UserJoinRegex() != "" && !self.Console_UserJoinRegex().match(/\^.+\$/)) { failure("User connected expression does not match the entire line. Regular expressions for AMP must match the entire line, starting with a ^ and ending with a $.", "Update the User connected expression under Server Events to match the entire line."); }
             if (self.Console_UserLeaveRegex() != "" && !self.Console_UserLeaveRegex().match(/\^.+\$/)) { failure("User disconnected expression does not match the entire line. Regular expressions for AMP must match the entire line, starting with a ^ and ending with a $.", "Update the User disconnected expression under Server Events to match the entire line."); }
             if (self.Console_UserChatRegex() != "" && !self.Console_UserChatRegex().match(/\^.+\$/)) { failure("User chat expression does not match the entire line. Regular expressions for AMP must match the entire line, starting with a ^ and ending with a $.", "Update the User chat expression under Server Events to match the entire line."); }
+=======
+        self.errors = ko.validation.group(self);
+        this.__ValidateConfig = function () {
+            autoSave();
+            self.__ValidationResults.removeAll();
+            if (self.errors().length === 0) {
+                var failure = (issue, recommendation) => self.__ValidationResults.push(new validationResult("Failure", issue, recommendation));
+                var warning = (issue, recommendation, impact) => self.__ValidationResults.push(new validationResult("Warning", issue, recommendation, impact));
+                var info = (issue, recommendation, impact) => self.__ValidationResults.push(new validationResult("Info", issue, recommendation, impact));
+    
+                //Validation Begins
+                if (self.Meta_DisplayName() == "") {
+                    failure("Missing application name", "Specify an application name under 'Basic Configuration'");
+                }
+    
+                if (!self._SupportsWindows() && !self._SupportsLinux()) {
+                    failure("No platforms have been specified as supported.", "Specify at least one supported platform under 'Basic Information'");
+                }
+    
+                if (self._SupportsWindows()) {
+                    if (self._WinExecutableName() == "") { failure("Windows is listed as a supported platform, but no executable for this platform was specified.", "Specify an executable for this platform under 'Startup and Shutdown'"); }
+                    else if (!self._WinExecutableName().toLowerCase().endsWith(".exe")) { failure("You can only start executables (.exe) files on Windows from AMP. Do not attempt to use batch files or other file types.", "Change your Windows Executable under Startup and Shutdown to be a .exe file."); }
+                }
+    
+                if (self._SupportsLinux()) {
+                    if (self._LinuxExecutableName() == "") { failure("Linux is listed as a supported platform, but no executable for this platform was specified.", "Specify an executable for this platform under 'Startup and Shutdown'"); }
+                    else if (self._LinuxExecutableName().toLowerCase().endsWith(".sh")) { failure("You can only start executables files from AMP. Do not attempt to use shell scripts or other file types.", "Change your Linux Executable under Startup and Shutdown to be an actual executable rather than a script."); }
+                }
+    
+                switch (self.App_AdminMethod()) {
+                    case "PinballWizard":
+                    case "AMP_GSIO":
+                        break;
+                    case "STDIO":
+                        if (!self.App_HasReadableConsole() && !self.App_HasWritableConsole()) {
+                            failure("Standard IO was selected as the management type, but the console was set as neither readable nor writable - so AMP won't be able to do anything useful.", "Either enable Reading or Writing for the console (if the application supports it) - or change the management mode to 'None'");
+                        }
+                        break;
+                    default:
+                        if (!self.App_CommandLineArgs().contains("{{$RemoteAdminPassword}}")) {
+                            warning("A server management mode is specified that requires AMP to know the password, but {{$RemoteAdminPassword}} is not found within the command line arguments.", "If the application can have it's RCON password specified via the command line then you should add the {{$RemoteAdminPassword}} template item to your command line arguments", "Without the ability to control the RCON password, AMP will not be able to use the servers RCON to provide a console or run commands.");
+                        }
+                        break;
+                }
+    
+                if ((self._compatibility() == "Wine" && !self._SupportsLinux()) || (self._compatibility() == "Proton" && !self._SupportsLinux())) { failure("A Linux compatibility layer was chosen, but Linux support is not checked.", "Please check both."); }
+>>>>>>> Stashed changes
 
             //Validation Summary
 
@@ -446,6 +543,10 @@ class generatorViewModel {
             else
             {
                 self.__ValidationResult(3);
+            }
+            } else{
+                alert('Please check your submission.');
+                self.errors.showAllMessages();
             }
         };
     }
@@ -502,6 +603,87 @@ class appSettingViewModel {
         });
         this.__RemoveSetting = () => self.__vm.__RemoveSetting(self);
         this.__EditSetting = () => self.__vm.__EditSetting(self);
+<<<<<<< Updated upstream
+=======
+
+        this._EnumMappings = ko.observableArray(); //of enumMappingViewModel
+        this.__NewEnumKey = ko.observable("");
+        this.__NewEnumValue = ko.observable("");
+
+        this.__RemoveEnum = function (toRemove) {
+            self._EnumMappings.remove(toRemove);
+        };
+
+        this.__AddEnum = function () {
+            self._EnumMappings.push(new enumMappingViewModel(self.__NewEnumKey(), self.__NewEnumValue(), self));
+        };
+
+        this.__Deserialize = function (inputData) {
+            var asJS = JSON.parse(inputData);
+            var enumSettings = asJS._EnumMappings;
+
+            delete asJS._EnumMappings;
+
+            ko.quickmap.map(self, asJS);
+
+            self._EnumMappings.removeAll();
+            var mappedEnums = ko.quickmap.to(enumMappingViewModel, enumSettings, false, { __vm: self });
+            self._EnumMappings.push.apply(self._EnumMappings, mappedEnums);
+        };
+
+        this.EnumValues = ko.computed(() => {
+            if (self.InputType() == "checkbox") {
+                var result = {};
+                result[self._CheckedValue()] = "True";
+                result[self._UncheckedValue()] = "False";
+                return result;
+            } else if (self.InputType() == "enum") {
+                var result = {};
+                for (let i = 0; i < self._EnumMappings().length; i++) {
+                    result[self._EnumMappings()[i]._enumKey()] = self._EnumMappings()[i]._enumValue();
+                }
+                return result;
+            } else {
+                return {};
+            }
+        });
+    }
+}
+
+class enumMappingViewModel {
+    constructor(enumKey, enumValue, vm) {
+        var self = this;
+        this.__vm = vm;
+        this._enumKey = ko.observable(enumKey);
+        this._enumValue = ko.observable(enumValue);
+        this.__RemoveEnum = () => self.__vm.__RemoveEnum(self);
+    }
+}
+
+class updateStageViewModel {
+    constructor(vm) {
+        var self = this;
+        this.__vm = vm;
+        this.UpdateStageName = ko.observable("").extend({ required: true });
+        this._UpdateSourcePlatform = ko.observable("0");
+        this.UpdateSourcePlatform = ko.computed(() => self._UpdateSourcePlatform() == "0" ? `All` : (self._UpdateSourcePlatform() == "1" ? `Linux` : `Windows`));
+        this._UpdateSource = ko.observable("8");
+        this.UpdateSource = ko.computed(() => self._UpdateSource() == "0" ? `CopyFilePath` : (self._UpdateSource() == "1" ? `CreateSymlink` : (self._UpdateSource() == "2" ? `Executable` : (self._UpdateSource() == "3" ? `ExtractArchive` : (self._UpdateSource() == "4" ? `FetchURL` : (self._UpdateSource() == "5" ? `GithubRelease` : (self._UpdateSource() == "6" ? `SetExecutableFlag` : (self._UpdateSource() == "7" ? `StartApplication` : `SteamCMD`))))))));
+        this.UpdateSourceData = ko.observable("");
+        this.UpdateSourceArgs = ko.observable("");
+        this.UpdateSourceVersion = ko.observable("");
+        this.UpdateSourceTarget = ko.observable("");
+        this.UnzipUpdateSource = ko.observable(false);
+        this.OverwriteExistingFiles = ko.observable(false);
+        this._ForceDownloadPlatform = ko.observable(null);
+        this.ForceDownloadPlatform = ko.computed(() => self._ForceDownloadPlatform() == "0" ? null : (self._ForceDownloadPlatform() == "1" ? `Linux` : `Windows`));
+        this.UpdateSourceConditionSetting = ko.observable(null);
+        this.UpdateSourceConditionValue = ko.observable(null);
+        this.DeleteAfterExtract = ko.observable(true);
+        this.OneShot = ko.observable(false);
+        this.__RemoveStage = () => self.__vm.__RemoveStage(self);
+        this.__EditStage = () => self.__vm.__EditStage(self);
+>>>>>>> Stashed changes
     }
 }
 
