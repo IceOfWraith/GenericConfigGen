@@ -42,6 +42,12 @@ class generatorViewModel {
         //this.Meta_ConfigReleaseState = ko.observable("NotSpecified");
         //this.Meta_NoCommercialUsage = ko.observable("False");
         this.Meta_EndpointURIFormat = ko.observable(`steam://connect/{ip}:{GenericModule.App.Ports.$SteamQueryPort}`);
+        this.Meta_AppConfigId = function guid() {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+                var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+        }
 
         this._SupportsWindows = ko.observable(true);
         this._SupportsLinux = ko.observable(true);
@@ -352,9 +358,9 @@ class generatorViewModel {
             self.__AddEditStage(new updateStageViewModel(self));
             $("#addEditStageModal").modal('show');
         };
-        this.Errors = ko.validation.group(self);
-        this.isValid = ko.computed(function () {
-            return self.Errors().length == 0;
+        this.__Errors = ko.validation.group(self);
+        this.__isValid = ko.computed(function () {
+            return self.__Errors().length == 0;
         });
         
         this.__DoAddStage = function () {
@@ -533,8 +539,8 @@ class generatorViewModel {
 
         this.__ValidateConfig = function () {
             autoSave();
-            if (!self.isValid()) {
-                self.Errors.showAllMessages();
+            if (!self.__isValid()) {
+                self.__Errors.showAllMessages();
                 return;
             }
             self.__ValidationResults.removeAll();
