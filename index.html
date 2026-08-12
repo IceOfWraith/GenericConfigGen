@@ -993,19 +993,23 @@
                             </div>
                         </div>
                         <div class="row">
-                            <div class="mb-3 col-6" data-bind="visible: Meta_DisplayImageSource().substring(0, 3) != 'url'">
+                            <div class="mb-3 col-6" data-bind="visible: _SteamAppID() != '0'">
                                 <label for="workshopModsField">Steam Workshop Mods Location</label>
                                 <div class="form-text">
                                     Where should AMP place Steam Workshop mods? This is relative to the Base Directory.
                                 </div>
                                 <input type="text" class="form-control" id="workshopModsField" data-bind="value: _App_SteamWorkshopDownloadLocation" placeholder="ConanSandbox/Mods">
                             </div>
-                            <div class="mb-3 col-6" data-bind="visible: Meta_DisplayImageSource().substring(0, 3) == 'url'">
+                            <div class="mb-3 col-6" data-bind="visible: _SteamStoreAppID() == ''">
                                 <label for="displayImageField">Display Image Source</label>
                                 <div class="form-text">
-                                    A URL to an image that AMP can use to represent the application. This is pre-filled for Steam games.
+                                    A URL to an image that AMP can use to represent the application. Taken from the Steam store instead when an update
+                                    stage names a client App ID - the server App ID has no store page, so it can't be used for this.
                                 </div>
                                 <input type="text" class="form-control" id="displayImageField" data-bind="value: _DisplayImageSource">
+                                <div class="form-text" data-bind="visible: _DisplayImageSource() == '' &amp;&amp; _Meta_DisplayImageSourceRaw() != ''">
+                                    The imported template's own image (<span data-bind="text: _Meta_DisplayImageSourceRaw"></span>) is being kept while this is blank.
+                                </div>
                             </div>
                         </div>
 <!--

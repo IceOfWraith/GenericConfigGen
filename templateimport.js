@@ -270,8 +270,15 @@ function templateValuesFromKvp(kvp, warnings) {
             : kvp["Meta.Author"];
     }
 
-    var imageSource = kvp["Meta.DisplayImageSource"] || "";
-    if (imageSource.toLowerCase().startsWith("url:")) { values._DisplayImageSource = imageSource.substring(4); }
+    //A "url:" source goes into the field that owns it. Anything else is kept as it was written - the
+    //generator rebuilds a "steam:" source from the update stage's client App ID, and a template whose
+    //stage doesn't name one (or that ships an "internal:" image) would otherwise lose its image.
+    //Both are written either way - an import is meant to replace what was entered, and leaving whichever
+    //one doesn't apply alone would have it win over the image the template actually shipped.
+    var imageSource = (kvp["Meta.DisplayImageSource"] || "").trim();
+    var imageIsURL = imageSource.toLowerCase().startsWith("url:");
+    values._DisplayImageSource = imageIsURL ? imageSource.substring(4) : "";
+    values._Meta_DisplayImageSourceRaw = imageIsURL ? "" : imageSource;
 
     var compatibility = detectCompatibility(kvp);
     values._compatibility = compatibility;

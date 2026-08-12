@@ -184,7 +184,7 @@ const portTypes = ["Custom Port", "Main Game Port", "Steam Query Port", "RCON Po
 const updateStepSpecs = [
     { name: "SteamCMD", value: 4, description: "Downloads an application by its Steam App ID.", fields: {
         UpdateSourceData: { label: "Server App ID", help: "The App ID of the dedicated server to download. Find it via SteamDB.", placeholder: "896660" },
-        UpdateSourceArgs: { label: "Client App ID", help: "The App ID of the game client, used for the store image and the SteamAppId variable. Defaults to the server App ID.", placeholder: "892970" },
+        UpdateSourceArgs: { label: "Client App ID", help: "The App ID of the game client on the Steam store. AMP takes the applications image from it - the server App ID has no store page, so leaving this blank means no image. Also used for the SteamAppId variable, which falls back to the server App ID.", placeholder: "892970" },
         UpdateSourceVersion: { label: "Branch", help: "The beta branch to download. Can be a fixed value or the field name of a setting. Public branch if left blank.", placeholder: "{{ReleaseStream}}" },
         UpdateSourceExtra: { label: "Workshop Mod Name", help: "Only used when downloading a Steam Workshop item rather than an application.", placeholder: "" },
         UpdateSourceTarget: { label: "Install Directory", help: "Where SteamCMD installs to. Defaults to the applications base directory.", placeholder: "" },
@@ -581,6 +581,9 @@ class generatorViewModel {
         this._UpdateSourceGitRepo = ko.observable("");
         this._UpdateSourceUnzip = ko.observable(false);
         this._DisplayImageSource = ko.observable("");
+        //Whatever an imported template already had, for the sources the generator can't work out for itself
+        //- an "internal:" image, or a "steam:" one on a template whose stage doesn't name a client App ID.
+        this._Meta_DisplayImageSourceRaw = ko.observable("");
 
         this._SteamServerAppID = ko.observable("");
 
@@ -635,6 +638,9 @@ class generatorViewModel {
             return '0';
         });
 
+        //Only the client App ID names something with a store page. It falls back to the server App ID for
+        //the SteamAppId environment variable, where the two are usually interchangeable - the store image
+        //below deliberately doesn't take that fallback.
         this._SteamClientAppID = ko.computed(() => {
             for (const stage of self._UpdateStages()) {
                 if (stage._UpdateSource() == "SteamCMD") {
@@ -645,7 +651,24 @@ class generatorViewModel {
             return '';
         });
 
-        this.Meta_DisplayImageSource = ko.computed(() => self._SteamClientAppID() == '' ? 'url:' + self._DisplayImageSource() : 'steam:' + self._SteamClientAppID());
+        //AMP builds the image URL as store_item_assets/steam/apps/<id>/header.jpg, which only exists for
+        //the game on the store - a dedicated server App ID has no store page, so pointing this at one
+        //leaves every instance of the application with a broken image.
+        this._SteamStoreAppID = ko.computed(() => {
+            for (const stage of self._UpdateStages()) {
+                if (stage._UpdateSource() == "SteamCMD" && stage.UpdateSourceArgs() != "") { return stage.UpdateSourceArgs(); }
+            }
+            return '';
+        });
+
+        //AMP's own default when a template has nothing better - it resolves to an image that exists,
+        //where an empty "url:" leaves the instance with a blank one.
+        this.Meta_DisplayImageSource = ko.computed(() => {
+            if (self._SteamStoreAppID() != '') { return 'steam:' + self._SteamStoreAppID(); }
+            if (self._DisplayImageSource() != '') { return 'url:' + self._DisplayImageSource(); }
+            if (self._Meta_DisplayImageSourceRaw() != '') { return self._Meta_DisplayImageSourceRaw(); }
+            return 'internal:UnknownApp';
+        });
         this.App_BaseDirectory = ko.computed(() => self._SteamAppID() == 0 ? self.App_RootDir() + 'serverfiles/' : self.App_RootDir() + self._SteamAppID() + '/');
         this.App_WorkingDir = ko.computed(() => self._SteamAppID() == 0 ? 'serverfiles' : self._SteamAppID());
         this.App_ExecutableWin = ko.computed(() => self.App_WorkingDir() == "" ? self._WinExecutableName() : `${self.App_WorkingDir()}\\${self._WinExecutableName()}`);
@@ -1197,6 +1220,17 @@ class generatorViewModel {
             if (self._compatibility() != "None" && !self._SupportsLinux()) { failure("A Linux compatibility layer was chosen, but Linux support is not checked.", "Please check both."); }
 
             if (self._compatibility() != "None" && self._WinExecutableName() == "") { failure("A Linux compatibility layer was chosen, but no Windows executable was specified to run under it.", "Specify the Windows executable under 'Startup and Shutdown'."); }
+
+            //Nothing here is fatal - AMP has an image of its own for this - but every instance of the
+            //application ends up with the generic one, which is rarely what the author wanted.
+            if (self.Meta_DisplayImageSource() == "internal:UnknownApp") {
+                if (self._SteamAppID() != '0') {
+                    warning("No image was given for the application.", "Fill in the 'Client App ID' on the SteamCMD stage under 'Update Sources' - that's the App ID of the game on the Steam store, not the one of the dedicated server.", "AMP shows the generic unknown-application image for every instance.");
+                }
+                else {
+                    warning("No image was given for the application.", "Enter a 'Display Image Source' URL under 'Configuration and Settings'.", "AMP shows the generic unknown-application image for every instance.");
+                }
+            }
 
             //A custom port is identified by the Ref built from its name, so an unnamed or repeated one
             //leaves AMP with nothing to key the port on.
