@@ -32,7 +32,7 @@ if (!String.prototype.template) {
 }
 
 function WildcardToRegex(pattern) {
-    if (pattern == null) { return null; }
+    if (pattern == null || pattern === "") { return ""; }
 
     var escapeReplace = function (data, original, replacement) {
         var searchRegex = new RegExp("\\\\+\\" + original);

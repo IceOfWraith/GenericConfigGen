@@ -340,7 +340,7 @@
                                     </span>
                                 </label>
                                 <label class="list-group-item d-flex gap-2" style="flex: 1">
-                                    <input class="form-check-input flex-shrink-0" type="checkbox" data-bind="checked: App_HasWritableConsole">
+                                    <input class="form-check-input flex-shrink-0" type="checkbox" data-bind="checked: App_HasWriteableConsole">
                                     <span>
                                         Writing
                                         <small class="d-block text-muted">
@@ -412,7 +412,7 @@
                                     </td>
                                     <td data-bind="text: _PortType"></td>
                                     <td>
-                                        <input type="text" data-bind="value: Name">
+                                        <input type="text" data-bind="value: _Name, enable: _PortType() == 'Custom Port', attr: { placeholder: Name }">
                                     </td>
                                     <td>
                                         <input type="text" placeholder="Port for main traffic" data-bind="value: _Description">
@@ -628,7 +628,7 @@
                         <h4 id="startupShutdown">Startup and Shutdown</h4>
                         <h5>Application and Parameters</h5>
                         <div class="row mb-3">
-                            <div class="mb-3 col-6" data-bind="visible: _SupportsWindows()">
+                            <div class="mb-3 col-6" data-bind="visible: _SupportsWindows() || _compatibility() != 'None'">
                                 <label for="applicationWinExeField">Windows Executable</label>
                                 <input type="text" class="form-control" id="applicationWinExeField" data-bind="value: _WinExecutableName, valueUpdate: 'input'" placeholder="Application.exe">
                             </div>
@@ -1015,14 +1015,23 @@
                             </label>
                             <input type="text" class="form-control" id="settingDispNameField" data-bind="value: DisplayName" placeholder="Server Name">
                         </div>
-                        <div class="mb-3 col-6">
+                        <div class="mb-3 col-3">
                             <label for="settingCategoryField">
                                 Category
                                 <small class="d-block text-muted">
-                                    Settings within the same category are automatically grouped together.
+                                    Settings within the same category are automatically grouped together. Format is Name:icon.
                                 </small>
                             </label>
-                            <input type="text" class="form-control" id="settingCategoryField" data-bind="value: Category" placeholder="Server Settings">
+                            <input type="text" class="form-control" id="settingCategoryField" data-bind="value: _Category, attr: { placeholder: Category }">
+                        </div>
+                        <div class="mb-3 col-3">
+                            <label for="settingSubcategoryField">
+                                Subcategory
+                                <small class="d-block text-muted">
+                                    The tab the setting appears under within the category. Format is Name:icon:order.
+                                </small>
+                            </label>
+                            <input type="text" class="form-control" id="settingSubcategoryField" data-bind="value: Subcategory" placeholder="Server:dns:1">
                         </div>
                     </div>
                     <div class="row">
@@ -1042,7 +1051,7 @@
                                     Keywords that relate to this setting. AMP uses these to help users find settings when using the search box.
                                 </small>
                             </label>
-                            <input type="text" class="form-control" id="settingKeywordField" data-bind="value: Keywords" placeholder="server,name">
+                            <input type="text" class="form-control" id="settingKeywordField" data-bind="value: _Keywords, attr: { placeholder: Keywords }">
                         </div>
                     </div>
                     <div class="row">
@@ -1083,14 +1092,43 @@
                             </label>
                             <input type="text" class="form-control" id="settingDefaultValueField" data-bind="value: DefaultValue" placeholder="AMP Powered Server">
                         </div>
-                        <div class="mb-3 col-6" data-bind="visible: InputType() != 'checkbox' && InputType() != 'enum' && InputType() != 'password'" placeholder="sec">
+                        <div class="mb-3 col-3" data-bind="visible: InputType() != 'checkbox' && InputType() != 'enum'">
+                            <label for="settingPlaceholderField">
+                                Placeholder
+                                <small class="d-block text-muted">
+                                    Shown in the input while it is empty. Left out of the config if blank.
+                                </small>
+                            </label>
+                            <input type="text" class="form-control" id="settingPlaceholderField" data-bind="value: Placeholder">
+                        </div>
+                        <div class="mb-3 col-3" data-bind="visible: InputType() != 'checkbox' && InputType() != 'enum' && InputType() != 'password'">
                             <label for="settingSuffixField">
                                 Suffix
                                 <small class="d-block text-muted">
                                     A unit of measure for the input.
                                 </small>
                             </label>
-                            <input type="text" class="form-control" id="settingSuffixField" data-bind="value: Suffix">
+                            <input type="text" class="form-control" id="settingSuffixField" data-bind="value: Suffix" placeholder="seconds">
+                        </div>
+                    </div>
+                    <div class="row" data-bind="visible: InputType() == 'number'">
+                        <div class="mb-3 col-6">
+                            <label for="settingMinValueField">
+                                Minimum Value
+                                <small class="d-block text-muted">
+                                    The lowest value the user may enter. Left out of the config if blank.
+                                </small>
+                            </label>
+                            <input type="text" class="form-control" id="settingMinValueField" data-bind="value: MinValue" placeholder="1">
+                        </div>
+                        <div class="mb-3 col-6">
+                            <label for="settingMaxValueField">
+                                Maximum Value
+                                <small class="d-block text-muted">
+                                    The highest value the user may enter. Left out of the config if blank.
+                                </small>
+                            </label>
+                            <input type="text" class="form-control" id="settingMaxValueField" data-bind="value: MaxValue" placeholder="64">
                         </div>
                     </div>
                     <div class="row">

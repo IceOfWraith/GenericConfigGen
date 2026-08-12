@@ -6,6 +6,171 @@ function omitPrivateMembers(key, value) {
     return (key.indexOf("__") === 0) ? undefined : value;
 }
 
+function newGuid() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+        var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+    });
+}
+
+//The order AMP itself writes GenericModule.kvp in - the field declaration order of each section in
+//GenericModuleConfig.cs. Keys not listed here are written after the ones that are, in the order the
+//view model declares them.
+const kvpKeyOrder = [
+    "Meta.DisplayName",
+    "Meta.Description",
+    "Meta.OS",
+    "Meta.AarchSupport",
+    "Meta.Arch",
+    "Meta.Author",
+    "Meta.URL",
+    "Meta.DisplayImageSource",
+    "Meta.EndpointURIFormat",
+    "Meta.ConfigManifest",
+    "Meta.MetaConfigManifest",
+    "Meta.ConfigRoot",
+    "Meta.DeprecatedReason",
+    "Meta.ResourceUsageInfo",
+    "Meta.MinAMPVersion",
+    "Meta.SpecificDockerImage",
+    "Meta.DockerRequired",
+    "Meta.DockerBaseReadOnly",
+    "Meta.ContainerPolicy",
+    "Meta.ContainerPolicyReason",
+    "Meta.ExtraSetupStepsURI",
+    "Meta.Prerequisites",
+    "Meta.ExtraContainerPackages",
+    "Meta.ConfigReleaseState",
+    "Meta.NoCommercialUsage",
+    "Meta.ConfigVersion",
+    "Meta.ReleaseNotes",
+    "Meta.BreakingReleaseNotes",
+    "Meta.AppConfigId",
+    "Meta.OriginalSource",
+    "Meta.ImportableExtensions",
+    "Meta.AppIsMultiIPAware",
+
+    "App.DisplayName",
+    "App.RootDir",
+    "App.BaseDirectory",
+    "App.StoresSupported",
+    "App.SteamWorkshopDownloadLocation",
+    "App.StoreSpecificSettings",
+    "App.StoreDownloadLocations",
+    "App.ExecutableWin",
+    "App.ExecutableLinux",
+    "App.WorkingDir",
+    "App.LinuxCommandLineArgs",
+    "App.WindowsCommandLineArgs",
+    "App.CommandLineArgs",
+    "App.UseLinuxIOREDIR",
+    "App.AppSettings",
+    "App.EnvironmentVariables",
+    "App.CommandLineParameterFormat",
+    "App.CommandLineParameterDelimiter",
+    "App.ExitMethod",
+    "App.ExitMethodWindows",
+    "App.ExitTimeout",
+    "App.ExitString",
+    "App.ExitFile",
+    "App.RestartDelaySeconds",
+    "App.HasWriteableConsole",
+    "App.HasReadableConsole",
+    "App.UDPLogger",
+    "App.SupportsLiveSettingsChanges",
+    "App.LiveSettingChangeCommandFormat",
+    "App.ForceIPBinding",
+    "App.SupportsIPv6",
+    "App.ApplicationIPBinding",
+    "App.Ports",
+    "App.AdminPortRef",
+    "App.PrimaryApplicationPortRef",
+    "App.UniversalSleepApplicationUDPPortRef",
+    "App.UniversalSleepSteamQueryPortRef",
+    "App.MaxUsers",
+    "App.UseRandomAdminPassword",
+    "App.PersistRandomPassword",
+    "App.RemoteAdminPassword",
+    "App.AdminMethod",
+    "App.IgnoreSTDOUTAfterRCON",
+    "App.AdminLoginTransform",
+    "App.StripANSIControlCodes",
+    "App.LoginTransformPrefix",
+    "App.RCONConnectDelaySeconds",
+    "App.RCONConnectRetrySeconds",
+    "App.RCONHeartbeatMinutes",
+    "App.RCONHeartbeatCommand",
+    "App.RCONSelectIPMethod",
+    "App.TelnetLoginFormat",
+    "App.TelnetNewLineType",
+    "App.TailLogFilePath",
+    "App.UpdateSources",
+    "App.PreStartStages",
+    "App.CommandTriggers",
+    "App.UserActions",
+    "App.ForceUpdate",
+    "App.ForceUpdateReason",
+    "App.Compatibility",
+    "App.SteamUpdateAnonymousLogin",
+    "App.SteamForceLoginPrompt",
+    "App.RapidStartup",
+    "App.MonitorChildProcess", //Legacy - kept where the existing templates place it.
+    "App.HasSuccessfullyUpdatedAtLeastOnce",
+    "App.SmartExcludeExemptions",
+    "App.SmartExcludeSupported",
+    "App.DumpFullChildProcessTree",
+    "App.MonitorChildProcessWaitMs", //Legacy
+    "App.MonitorChildProcessName",
+    "App.MonitorDirectChildOnly",
+    "App.SupportsUniversalSleep",
+    "App.UseSteamQueryForStatus",
+    "App.WakeupMode",
+    "App.ApplicationReadyMode",
+    "App.QuiesceCommand",
+    "App.DequiesceCommand",
+    "App.QuiesceSettleDelayMilliseconds",
+
+    "Console.FilterMatchRegex",
+    "Console.FilterMatchReplacement",
+    "Console.ThrowawayMessageRegex",
+    "Console.AppReadyRegex",
+    "Console.UserJoinRegex",
+    "Console.UserLeaveRegex",
+    "Console.UserChatRegex",
+    "Console.UpdateAvailableRegex",
+    "Console.PreConnectRegex",
+    "Console.ConnectIPRegex",
+    "Console.MetricsRegex",
+    "Console.ServerInfoRegex",
+    "Console.ServerAuthURLPromptRegex",
+    "Console.ServerAuthAckRegex",
+    "Console.ConsoleFormatRegex",
+    "Console.DownloadProgressRegex",
+    "Console.HideFromConsoleRegex",
+    "Console.SuppressLogAtStart",
+    "Console.ActivateLogRegex", //Legacy
+    "Console.UserActions",
+
+    "Limits.SleepMode",
+    "Limits.SleepOnStart",
+    "Limits.SleepDelayMinutes",
+    "Limits.DozeDelay",
+    "Limits.AutoRetryCount",
+    "Limits.SleepStartThresholdSeconds",
+];
+
+//Stable sort - anything AMP doesn't write (or that was added since) keeps its relative order at the end.
+function sortByKvpKeyOrder(keys) {
+    return keys.slice().sort((a, b) => {
+        var indexA = kvpKeyOrder.indexOf(a);
+        var indexB = kvpKeyOrder.indexOf(b);
+        if (indexA == indexB) { return 0; }
+        if (indexA == -1) { return 1; }
+        if (indexB == -1) { return -1; }
+        return indexA - indexB;
+    });
+}
+
 function downloadString(data, filename) {
     var element = document.createElement('a');
     element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(data));
@@ -24,37 +189,32 @@ class generatorViewModel {
         var self = this;
         this._availablePortOptions = ko.observableArray(['Custom Port', 'Main Game Port', 'Steam Query Port', 'RCON Port']);
         this._compatibility = ko.observable("None");
-        this.Meta_DisplayName = ko.observable("").extend({ required: "Please enter a first name" });
+        this.Meta_DisplayName = ko.observable("").extend({ required: "Please enter an application name" });
         this.Meta_Description = ko.observable("");
         this.Meta_Arch = ko.observable("x86_64");
         this._Meta_Author = ko.observable("");
         this.Meta_Author = ko.computed(() => self._Meta_Author() + ' - Made with AMP Config Generator');
-        this._Meta_GithubOrigin = ko.computed(() => 'https://github.com/' + self.Meta_Author() + '/AMPTemplates.git');
-        this._Meta_GithubURL = ko.computed(() => 'https://github.com/' + self.Meta_Author() + '/AMPTemplates');
+        this._Meta_GithubOrigin = ko.computed(() => 'https://github.com/' + self._Meta_Author() + '/AMPTemplates.git');
+        this._Meta_GithubURL = ko.computed(() => 'https://github.com/' + self._Meta_Author() + '/AMPTemplates');
         this.Meta_URL = ko.observable("");
         this.Meta_MinAMPVersion = ko.observable("2.4.6.6");
         this.Meta_SpecificDockerImage = ko.computed(() => self._compatibility() != "None" ? (self._compatibility().substring(self._compatibility().length - 4) == "Xvfb" ? `cubecoders/ampbase:xvfb` : `cubecoders/ampbase:wine`) : ``);
         this.Meta_DockerRequired = ko.observable("False");
         this.Meta_ContainerPolicy = ko.observable("Supported");
         this.Meta_ContainerPolicyReason = ko.observable("");
-        this.Meta_Prerequsites = ko.observable("[]");
+        this.Meta_Prerequisites = ko.observable("[]");
         //this.Meta_ExtraContainerPackages = ko.observable("");
         //this.Meta_ConfigReleaseState = ko.observable("NotSpecified");
         //this.Meta_NoCommercialUsage = ko.observable("False");
         this.Meta_EndpointURIFormat = ko.observable(`steam://connect/{ip}:{GenericModule.App.Ports.$SteamQueryPort}`);
-        this.Meta_AppConfigId = function guid() {
-            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
-                var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
-                return v.toString(16);
-            });
-        }
+        this.Meta_AppConfigId = ko.observable(newGuid());
 
         this._SupportsWindows = ko.observable(true);
         this._SupportsLinux = ko.observable(true);
 
         this.App_AdminMethod = ko.observable("STDIO");
         this.App_HasReadableConsole = ko.observable(true);
-        this.App_HasWritableConsole = ko.observable(true);
+        this.App_HasWriteableConsole = ko.observable(true);
         this.App_DisplayName = ko.computed(() => this.Meta_DisplayName());
         this.App_CommandLineArgs = ko.observable("{{$PlatformArgs}} {{$FormattedArgs}}")
         this.App_WindowsCommandLineArgs = ko.observable("");
@@ -71,8 +231,8 @@ class generatorViewModel {
         this.App_LiveSettingChangeCommandFormat = ko.observable("set {0} \"{1}\"");
         this.App_ApplicationIPBinding = ko.observable("0.0.0.0");
         this.App_AdminPortRef = ko.observable("RemoteAdminPort");
-        this.App_UniversalSleepApplicationUDPPortRef = ko.observable("GamePort1");
-        this.App_PrimaryApplicationPortRef = ko.observable("GamePort1");
+        this.App_UniversalSleepApplicationUDPPortRef = ko.observable("MainGamePort");
+        this.App_PrimaryApplicationPortRef = ko.observable("MainGamePort");
         this.App_UniversalSleepSteamQueryPortRef = ko.observable("SteamQueryPort");
         this.App_MaxUsers = ko.observable("8");
         this.App_UseRandomAdminPassword = ko.observable("True");
@@ -87,13 +247,12 @@ class generatorViewModel {
         this.App_SteamForceLoginPrompt = ko.observable("False");
         this.App_SupportsUniversalSleep = ko.observable("False");
         this.App_WakeupMode = ko.observable("Any");
-        this.App_TemplateMatchRegex = ko.observable("{{(\\$?[\\w]+)}}");
         this.App_MonitorChildProcess = ko.observable("False");
         this.App_MonitorChildProcessWaitMs = ko.observable("1000");
         this.App_MonitorChildProcessName = ko.observable("");
         this.App_Compatibility = ko.observable("None");
 //        this.App_AppSettings = ko.observableArray();
-        this._App_SteamWorkshopDownloadLocation = ko.observable();
+        this._App_SteamWorkshopDownloadLocation = ko.observable("");
         this.App_SteamWorkshopDownloadLocation = ko.computed(() => this._App_SteamWorkshopDownloadLocation() != '' ? "{{$FullBaseDir}}" + this._App_SteamWorkshopDownloadLocation() : '');
 
         this.Console_FilterMatchRegex = ko.observable("");
@@ -108,24 +267,25 @@ class generatorViewModel {
         this.Console_SuppressLogAtStart = ko.observable("False");
         this.Console_ActivateLogRegex = ko.observable("");
         this.Console_UserActions = ko.observable("{}");
-        this.Console_SleepMode = ko.observable("False");
-        this.Console_SleepOnStart = ko.observable("False");
-        this.Console_SleepDelayMinutes = ko.observable("5");
-        this.Console_DozeDelay = ko.observable("2");
-        this.Console_AutoRetryCount = ko.observable("5");
-        this.Console_SleepStartThresholdSeconds = ko.observable("25");
+
+        this.Limits_SleepMode = ko.observable("False");
+        this.Limits_SleepOnStart = ko.observable("False");
+        this.Limits_SleepDelayMinutes = ko.observable("5");
+        this.Limits_DozeDelay = ko.observable("2");
+        this.Limits_AutoRetryCount = ko.observable("5");
+        this.Limits_SleepStartThresholdSeconds = ko.observable("25");
 
         this._PortMappings = ko.observableArray(); //of portMappingViewModel
         this.__NewPort = ko.observable("7777");
         this.__NewName = ko.observable("");
         this.__NewDescription = ko.observable("");
-        this.__NewPortType = ko.observable("0");
+        this.__NewPortType = ko.observable("Custom Port");
         this.__NewProtocol = ko.observable("0");
 
         this._ConfigFileMappings = ko.observableArray(); //of configFileMappingViewModel
         this.__NewConfigFile = ko.observable("");
         this.__NewAutoMap = ko.observable(true);
-        this.__NewConfigType = ko.observable("");
+        this.__NewConfigType = ko.observable("0");
 
         this._UpdateSourceURL = ko.observable("");
         this._UpdateSourceGitRepo = ko.observable("");
@@ -159,33 +319,33 @@ class generatorViewModel {
         this.Meta_ConfigRoot = ko.computed(() => self.__SanitizedName() + ".kvp");
         this.App_RootDir = ko.computed(() => `./${self.__SanitizedName()}/`);
 
-        this._SteamCheck = ko.computed(() => {
-            if (self._UpdateStages().length != 0) {
-                var appIDCheck = "0";
-                for (let i = 0; i < self._UpdateStages().length; i++) {
-                    if (self._UpdateStages()[i]._UpdateSource() == 8 && appIDCheck == 0) {
-                        appIDCheck = self._UpdateStages()[i].UpdateSourceArgs();
-                    }
+        this._SteamAppID = ko.computed(() => {
+            for (const stage of self._UpdateStages()) {
+                if (stage._UpdateSource() == "8" && stage.UpdateSourceData() != "") {
+                    return stage.UpdateSourceData();
                 }
-                if (appIDCheck != 0) {
-                    return appIDCheck;
-                } else {
-                    return '0';
-                }
-            } else {
-                return '0';
             }
+            return '0';
         });
 
-        this.Meta_DisplayImageSource = ko.computed(() => self._SteamCheck() == 0 ? 'url:' + self._DisplayImageSource() : 'steam:' + self._SteamCheck());
-        this.App_BaseDirectory = ko.computed(() => self._SteamCheck() == 0 ? self.App_RootDir() + 'serverfiles/' : self.App_RootDir() + self._SteamCheck() + '/');
-        this.App_WorkingDir = ko.computed(() => self._SteamCheck() == 0 ? 'serverfiles' : self._SteamCheck());
-        this._SteamClientAppID = ko.computed(() => self._SteamCheck() != 0 ? self._SteamCheck() : '');
+        this._SteamClientAppID = ko.computed(() => {
+            for (const stage of self._UpdateStages()) {
+                if (stage._UpdateSource() == "8") {
+                    var clientAppID = stage.UpdateSourceArgs() != "" ? stage.UpdateSourceArgs() : stage.UpdateSourceData();
+                    if (clientAppID != "") { return clientAppID; }
+                }
+            }
+            return '';
+        });
+
+        this.Meta_DisplayImageSource = ko.computed(() => self._SteamClientAppID() == '' ? 'url:' + self._DisplayImageSource() : 'steam:' + self._SteamClientAppID());
+        this.App_BaseDirectory = ko.computed(() => self._SteamAppID() == 0 ? self.App_RootDir() + 'serverfiles/' : self.App_RootDir() + self._SteamAppID() + '/');
+        this.App_WorkingDir = ko.computed(() => self._SteamAppID() == 0 ? 'serverfiles' : self._SteamAppID());
         this.App_ExecutableWin = ko.computed(() => self.App_WorkingDir() == "" ? self._WinExecutableName() : `${self.App_WorkingDir()}\\${self._WinExecutableName()}`);
         this.App_ExecutableLinux = ko.computed(() => self._compatibility() == "None" ? (self.App_WorkingDir() == "" ? self._LinuxExecutableName() : `${self.App_WorkingDir()}/${self._LinuxExecutableName()}`) : (self._compatibility().substring(self._compatibility().length - 4) == "Xvfb" ? '/usr/bin/xvfb-run' : (self._compatibility() == "Wine" ? '/usr/bin/wine' : '1580130/proton')));
         this._App_LinuxCommandLineArgsCompat = ko.computed(() => self._compatibility() == "None" ? '' : (self._compatibility() == "WineXvfb" ? '-a wine \"./' + self._WinExecutableName() + '\"' : (self._compatibility() == "ProtonXvfb" ? '-a \"{{$FullRootDir}}1580130/proton\" run \"./' + self._WinExecutableName() + '\"' : (self._compatibility() == "Proton" ? 'run \"./' + self._WinExecutableName() + '\"' : '\"./' + self._WinExecutableName() + '\"'))));
         this._App_LinuxCommandLineArgsInput = ko.observable("");
-        this.App_LinuxCommandLineArgs = ko.computed(() => self._App_LinuxCommandLineArgsCompat() != '' ? self._App_LinuxCommandLineArgsCompat() + ' ' + self._App_LinuxCommandLineArgsInput() : self._App_LinuxCommandLineArgsInput());
+        this.App_LinuxCommandLineArgs = ko.computed(() => (self._App_LinuxCommandLineArgsCompat() != '' ? self._App_LinuxCommandLineArgsCompat() + ' ' + self._App_LinuxCommandLineArgsInput() : self._App_LinuxCommandLineArgsInput()).trim());
 
         this.App_Ports = ko.computed(() => `@IncludeJson[` + self._Meta_PortsManifest() + `]`);
         this.App_UpdateSources = ko.computed(() => `@IncludeJson[` + self._Meta_StagesManifest() + `]`);
@@ -378,12 +538,33 @@ class generatorViewModel {
             return result;
         };
 
+        //Keys that were renamed once it turned out they didn't match the module config - configurations
+        //exported before the rename are migrated on import so their values aren't silently dropped.
+        this.__RenamedKeys = {
+            "App_HasWritableConsole": "App_HasWriteableConsole",
+            "Meta_Prerequsites": "Meta_Prerequisites",
+            "Console_SleepMode": "Limits_SleepMode",
+            "Console_SleepOnStart": "Limits_SleepOnStart",
+            "Console_SleepDelayMinutes": "Limits_SleepDelayMinutes",
+            "Console_DozeDelay": "Limits_DozeDelay",
+            "Console_AutoRetryCount": "Limits_AutoRetryCount",
+            "Console_SleepStartThresholdSeconds": "Limits_SleepStartThresholdSeconds"
+        };
+
         this.__Deserialize = function (inputData) {
             var asJS = JSON.parse(inputData);
-            var ports = asJS._PortMappings;
-            var configFiles = asJS._ConfigFileMappings;
-            var settings = asJS._AppSettings;
-            var stages = asJS._UpdateStages;
+
+            for (const [oldKey, newKey] of Object.entries(self.__RenamedKeys)) {
+                if (typeof asJS[oldKey] !== "undefined") {
+                    if (typeof asJS[newKey] === "undefined") { asJS[newKey] = asJS[oldKey]; }
+                    delete asJS[oldKey];
+                }
+            }
+
+            var ports = asJS._PortMappings || [];
+            var configFiles = asJS._ConfigFileMappings || [];
+            var settings = asJS._AppSettings || [];
+            var stages = asJS._UpdateStages || [];
 
             delete asJS._PortMappings;
             delete asJS._ConfigFileMappings;
@@ -401,7 +582,23 @@ class generatorViewModel {
             self._ConfigFileMappings.push.apply(self._ConfigFileMappings, mappedConfigFiles);
 
             self._AppSettings.removeAll();
-            var mappedSettings = ko.quickmap.to(appSettingViewModel, settings, false, { __vm: self });
+            //quickmap only maps one level deep, so the enum mappings are held back and turned into view models by hand.
+            var mappedSettings = [];
+            for (const settingData of settings) {
+                var enumMappings = settingData._EnumMappings || [];
+                var withoutEnums = Object.assign({}, settingData);
+                delete withoutEnums._EnumMappings;
+
+                //Category and Keywords were plain values before they gained a generated fallback, so an
+                //older configuration keeps its text by moving it into the backing observable.
+                if (typeof withoutEnums.Category !== "undefined" && typeof withoutEnums._Category === "undefined") { withoutEnums._Category = withoutEnums.Category; }
+                if (typeof withoutEnums.Keywords !== "undefined" && typeof withoutEnums._Keywords === "undefined") { withoutEnums._Keywords = withoutEnums.Keywords; }
+
+                var mappedSetting = ko.quickmap.to(appSettingViewModel, withoutEnums, false, { __vm: self });
+                var mappedEnums = ko.quickmap.to(enumMappingViewModel, enumMappings, false, { __vm: mappedSetting });
+                mappedSetting._EnumMappings.push.apply(mappedSetting._EnumMappings, mappedEnums);
+                mappedSettings.push(mappedSetting);
+            }
             self._AppSettings.push.apply(self._AppSettings, mappedSettings);
 
             self._UpdateStages.removeAll();
@@ -454,42 +651,43 @@ class generatorViewModel {
         }
 
         this.__GithubManifest = function () {
-            function guid() {
-                return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
-                    var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
-                    return v.toString(16);
-                });
-            }
-            var githubManifest = JSON.stringify({ id: guid(), authors: [self.Meta_Author()], origin: self._Meta_GithubOrigin(), url: self._Meta_GithubURL(), imagefile: "", prefix: self.Meta_Author() }, null, 4);
+            var githubManifest = JSON.stringify({ id: newGuid(), authors: [self.Meta_Author()], origin: self._Meta_GithubOrigin(), url: self._Meta_GithubURL(), imagefile: "", prefix: self._Meta_Author() }, null, 4);
             return githubManifest;
         }
 
         this.__DownloadConfig = function () {
             if (this.__ValidationResult() < 2) { return; }
 
-            var lines = [];
+            var values = {};
             for (const key of Object.keys(self).filter(k => !k.startsWith("_"))) {
-                lines.push(`${key.replace("_", ".")}=${self[key]()}`);
+                values[key.replace("_", ".")] = self[key]();
             }
 
-            if ((self._compatibility() == "Proton" || self._compatibility() == "ProtonXvfb") && self._SteamCheck() != 0) {
-                lines.push(`App.EnvironmentVariables={\"LD_LIBRARY_PATH\": \"{{$FullBaseDir}}linux64:{{$FullRootDir}}linux64:%LD_LIBRARY_PATH%\", \"SteamAppId\": \"${self._SteamClientAppID()}\", \"STEAM_COMPAT_DATA_PATH\": \"{{$FullRootDir}}1580130\", \"STEAM_COMPAT_CLIENT_INSTALL_PATH\": \"{{$FullRootDir}}1580130\"}`);
-            } else if ((self._compatibility() == "Proton" || self._compatibility() == "ProtonXvfb") && self._SteamCheck() == 0) {
-                lines.push(`App.EnvironmentVariables={\"LD_LIBRARY_PATH\": \"{{$FullBaseDir}}linux64:{{$FullRootDir}}linux64:%LD_LIBRARY_PATH%\"}`);
-            } else if ((self._compatibility() == "Wine" || self._compatibility() == "WineXvfb") && self._SteamCheck() != 0) {
-                lines.push(`App.EnvironmentVariables={\"LD_LIBRARY_PATH\": \"{{$FullBaseDir}}linux64:{{$FullRootDir}}linux64:%LD_LIBRARY_PATH%\", \"SteamAppId\": \"${self._SteamClientAppID()}\", \"WINEPREFIX\": \"{{$FullRootDir}}.wine\", \"WINEARCH\": \"win64\", \"WINEDEBUG\": \"-all\"}`);
-            } else {
-                lines.push(`App.EnvironmentVariables={\"LD_LIBRARY_PATH\": \"{{$FullBaseDir}}linux64:{{$FullRootDir}}linux64:%LD_LIBRARY_PATH%\", \"WINEPREFIX\": \"{{$FullRootDir}}.wine\", \"WINEARCH\": \"win64\", \"WINEDEBUG\": \"-all\"}`);
+            var environmentVariables = { "LD_LIBRARY_PATH": "{{$FullBaseDir}}linux64:{{$FullRootDir}}linux64:%LD_LIBRARY_PATH%" };
+
+            if (self._SteamClientAppID() != '') {
+                environmentVariables["SteamAppId"] = self._SteamClientAppID();
             }
 
-            var output = lines.join("\n");
-            var asJSAppSettings = ko.toJS(self._AppSettings());
+            if (self._compatibility() == "Proton" || self._compatibility() == "ProtonXvfb") {
+                environmentVariables["STEAM_COMPAT_DATA_PATH"] = "{{$FullRootDir}}1580130";
+                environmentVariables["STEAM_COMPAT_CLIENT_INSTALL_PATH"] = "{{$FullRootDir}}1580130";
+            } else if (self._compatibility() == "Wine" || self._compatibility() == "WineXvfb") {
+                environmentVariables["WINEPREFIX"] = "{{$FullRootDir}}.wine";
+                environmentVariables["WINEARCH"] = "win64";
+                environmentVariables["WINEDEBUG"] = "-all";
+            }
+
+            values["App.EnvironmentVariables"] = JSON.stringify(environmentVariables);
+
+            var output = sortByKvpKeyOrder(Object.keys(values)).map(key => `${key}=${values[key]}`).join("\n");
+            var asJSAppSettings = self._AppSettings().map(setting => setting.__ToManifestEntry());
             var asJSUpdateStages = ko.toJS(self._UpdateStages());
             var asJSPortMappings = ko.toJS(self._PortMappings());
             var asJSConfigFileMappings = ko.toJS(self._ConfigFileMappings());
             var zip = new JSZip();
             zip.file(self.Meta_ConfigRoot(), output);
-            zip.file(self.Meta_ConfigManifest(), JSON.stringify(asJSAppSettings, omitNonPublicMembers, 4));
+            zip.file(self.Meta_ConfigManifest(), JSON.stringify(asJSAppSettings, null, 4));
             for (const stage of asJSUpdateStages) {
                 if (stage.ForceDownloadPlatform == null) {
                     delete stage.ForceDownloadPlatform;
@@ -573,7 +771,7 @@ class generatorViewModel {
                 case "AMP_GSIO":
                     break;
                 case "STDIO":
-                    if (!self.App_HasReadableConsole() && !self.App_HasWritableConsole()) {
+                    if (!self.App_HasReadableConsole() && !self.App_HasWriteableConsole()) {
                         failure("Standard IO was selected as the management type, but the console was set as neither readable nor writable - so AMP won't be able to do anything useful.", "Either enable Reading or Writing for the console (if the application supports it) - or change the management mode to 'None'");
                     }
                     break;
@@ -592,7 +790,9 @@ class generatorViewModel {
 */                    break;
             }
 
-            if ((self._compatibility() == "Wine" && !self._SupportsLinux()) || (self._compatibility() == "Proton" && !self._SupportsLinux())) { failure("A Linux compatibility layer was chosen, but Linux support is not checked.", "Please check both."); }
+            if (self._compatibility() != "None" && !self._SupportsLinux()) { failure("A Linux compatibility layer was chosen, but Linux support is not checked.", "Please check both."); }
+
+            if (self._compatibility() != "None" && self._WinExecutableName() == "") { failure("A Linux compatibility layer was chosen, but no Windows executable was specified to run under it.", "Specify the Windows executable under 'Startup and Shutdown'."); }
 
             //Validation Summary
 
@@ -627,7 +827,7 @@ class validationResult {
 }
 
 class portMappingViewModel {
-    constructor(port, portName, portDescription, portType, protocol, vm) {
+    constructor(port = "", portName = "", portDescription = "", portType = "Custom Port", protocol = "0", vm = null) {
         var self = this;
         this.__vm = vm;
         this._Protocol = ko.observable(protocol);
@@ -637,19 +837,19 @@ class portMappingViewModel {
         this._Name = ko.observable(portName);
         this.Name = ko.computed(() => self._PortType() == "Custom Port" ? self._Name() : (self._PortType() == "Steam Query Port" ? `Steam Query Port` : (self._PortType() == "RCON Port" ? `Remote Admin Port` : `Main Game Port`)));
         this._Description = ko.observable(portDescription);
-        this.Description = ko.computed(() => self._Description() == "0" ? self._Description() : (self._PortType() == "1" ? `Port used for Steam queries and server list` : (self._PortType() == "2" ? `Port used for RCON administration` : `Port used for main game traffic`)));
+        this.Description = ko.computed(() => self._PortType() == "Custom Port" ? self._Description() : (self._PortType() == "Steam Query Port" ? `Port used for Steam queries and server list` : (self._PortType() == "RCON Port" ? `Port used for RCON administration` : `Port used for main game traffic`)));
         this.Ref = ko.computed(() => self._PortType() == "Custom Port" ? self._Name().replace(/\s+/g, "").replace(/[^a-z\d-_]/ig, "") : (self._PortType() == "Steam Query Port" ? `SteamQueryPort` : (self._PortType() == "RCON Port" ? `RemoteAdminPort` : `MainGamePort`)));
         this.__RemovePort = () => self.__vm.__RemovePort(self);
     }
 }
 
 class configFileMappingViewModel {
-    constructor(configFile, autoMap, configType, vm) {
+    constructor(configFile = "", autoMap = true, configType = "0", vm = null) {
         var self = this;
         this.__vm = vm;
         this.ConfigFile = ko.observable(configFile);
         this._ConfigType = ko.observable(configType);
-        this.ConfigType = ko.computed(() => self._ConfigType() == "0" ? `json` : (self._ConfigType() == "1" ? `ini` : (self._ConfigType() == "2" ? `xml` : (self._ConfigType() == "3" ? `kvp` : ``))));
+        this.ConfigType = ko.computed(() => self._ConfigType() == "0" ? `json` : (self._ConfigType() == "1" ? `ini` : (self._ConfigType() == "2" ? `xml` : (self._ConfigType() == "3" ? `kvp` : `auto`))));
         this._AutoMap = ko.observable(autoMap);
         this.AutoMap = ko.computed(() => self._ConfigType() == "4" ? false : self._AutoMap());
         this.__RemoveConfigFile = () => self.__vm.__RemoveConfigFile(self);
@@ -661,16 +861,30 @@ class appSettingViewModel {
         var self = this;
         this.__vm = vm;
         this.DisplayName = ko.observable("");
-        this.Category = ko.observable("Server Settings");
+        //Categories and subcategories are "Name:icon" in the templates (subcategories usually carry a
+        //":order" too), so an empty category falls back to the applications own name.
+        this._Category = ko.observable("");
+        this.Category = ko.computed(() => {
+            if (self._Category() != "") { return self._Category(); }
+            //__vm is attached after the data is mapped when a saved configuration is loaded, so fall back
+            //to the generator view model itself rather than caching a category without the app name in it.
+            //globalThis, because the constructors 'vm' parameter shadows the global one.
+            var owner = self.__vm || globalThis.vm;
+            return ((owner ? owner.Meta_DisplayName() : "") || "Server Settings") + ":stadia_controller";
+        });
+        this.Subcategory = ko.observable("Server:dns:1");
         this.Description = ko.observable("");
-        this.Keywords = ko.computed(() => self.DisplayName().toLowerCase().replaceAll(" ", ","));
+        this._Keywords = ko.observable("");
+        this.Keywords = ko.computed(() => self._Keywords() != "" ? self._Keywords() : self.DisplayName().toLowerCase().replaceAll(" ", ","));
         this.FieldName = ko.observable("");
         this.InputType = ko.observable("text")
+        this.MinValue = ko.observable("");
+        this.MaxValue = ko.observable("");
         this.IsFlagArgument = ko.observable(false);
         this.ParamFieldName = ko.computed(() => self.FieldName());
         this.IncludeInCommandLine = ko.observable(false);
         this.DefaultValue = ko.observable("");
-        this.Placeholder = ko.computed(() => self.DefaultValue());
+        this.Placeholder = ko.observable("");
         this.Suffix = ko.observable("");
         this.Hidden = ko.observable(false);
         this.SkipIfEmpty = ko.observable(false);
@@ -706,25 +920,64 @@ class appSettingViewModel {
 
         this.EnumValues = ko.computed(() => {
             if (self.InputType() == "checkbox") {
+                //Checkboxes are keyed on the state ("False"/"True"), with the value being what gets written
+                //out - the same way AMP fills these in itself and how the templates are written.
                 var result = {};
-                result[self._CheckedValue()] = "True";
-                result[self._UncheckedValue()] = "False";
+                result["False"] = self._UncheckedValue();
+                result["True"] = self._CheckedValue();
                 return result;
             } else if (self.InputType() == "enum") {
                 var result = {};
-                for (let i = 0; i < self._EnumMappings().length; i++) {
-                    result[self._EnumMappings()[i]._enumKey()] = self._EnumMappings()[i]._enumValue();
+                for (const enumMapping of self._EnumMappings()) {
+                    result[ko.unwrap(enumMapping._enumKey)] = ko.unwrap(enumMapping._enumValue);
                 }
                 return result;
             } else {
                 return {};
             }
         });
+
+        //Builds the entry as it appears in <name>config.json. Key order and which keys are present at all
+        //follow what the existing templates do: the optional ones are only written when they actually say
+        //something (AMP defaults them to false/empty anyway).
+        this.__ToManifestEntry = function () {
+            var entry = {
+                DisplayName: self.DisplayName(),
+                Category: self.Category(),
+                Subcategory: self.Subcategory(),
+                Description: self.Description(),
+                Keywords: self.Keywords(),
+                FieldName: self.FieldName(),
+                InputType: self.InputType()
+            };
+
+            if (self.InputType() == "number") {
+                if (self.MinValue() != "") { entry.MinValue = self.MinValue(); }
+                if (self.MaxValue() != "") { entry.MaxValue = self.MaxValue(); }
+            }
+
+            if (self.IsFlagArgument()) { entry.IsFlagArgument = true; }
+            if (self.Hidden()) { entry.Hidden = true; }
+
+            entry.ParamFieldName = self.ParamFieldName();
+
+            if (self.IncludeInCommandLine()) { entry.IncludeInCommandLine = true; }
+            if (self.SkipIfEmpty()) { entry.SkipIfEmpty = true; }
+
+            entry.DefaultValue = self.DefaultValue();
+
+            if (self.Placeholder() != "") { entry.Placeholder = self.Placeholder(); }
+            if (self.Suffix() != "") { entry.Suffix = self.Suffix(); }
+
+            entry.EnumValues = self.EnumValues();
+
+            return entry;
+        };
     }
 }
 
 class enumMappingViewModel {
-    constructor(enumKey, enumValue, vm) {
+    constructor(enumKey = "", enumValue = "", vm = null) {
         var self = this;
         this.__vm = vm;
         this._enumKey = ko.observable(enumKey);
@@ -749,7 +1002,7 @@ class updateStageViewModel {
         this.UnzipUpdateSource = ko.observable(false);
         this.OverwriteExistingFiles = ko.observable(false);
         this._ForceDownloadPlatform = ko.observable(null);
-        this.ForceDownloadPlatform = ko.computed(() => self._ForceDownloadPlatform() == "0" ? null : (self._ForceDownloadPlatform() == "1" ? `Linux` : `Windows`));
+        this.ForceDownloadPlatform = ko.computed(() => self._ForceDownloadPlatform() == "1" ? `Linux` : (self._ForceDownloadPlatform() == "2" ? `Windows` : null));
         this.UpdateSourceConditionSetting = ko.observable(null);
         this.UpdateSourceConditionValue = ko.observable(null);
         this.DeleteAfterExtract = ko.observable(true);
@@ -766,8 +1019,13 @@ function autoSave() {
 }
 
 function autoLoad() {
-    if (localStorage.configgenautosave != "") {
+    if (!localStorage.configgenautosave) { return; }
+    try {
         vm.__Deserialize(localStorage.configgenautosave);
+    }
+    catch (e) {
+        console.error("Could not load the autosaved configuration - starting from a blank one.", e);
+        localStorage.configgenautosave = "";
     }
 }
 
