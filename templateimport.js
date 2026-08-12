@@ -300,9 +300,11 @@ function templateValuesFromKvp(kvp, warnings) {
     return values;
 }
 
-//Every part of a port the generator has an editor for. The rest - offsets, ranges, child ports, delayed
-//opening - rides along on _Passthrough.
-const templateKnownPortKeys = ["Protocol", "Port", "Ref", "Name", "Description", "ChildPorts"];
+//Every part of a port the generator has an editor for. The rest - hidden ports, anything AMP has added
+//since - rides along on _Passthrough.
+const templateKnownPortKeys = ["Protocol", "Port", "Range", "MinListening", "Ref", "Name", "Description", "IsDelayedOpen", "Required", "ChildPorts"];
+//A child has no port of its own - AMP works it out from the parent and the offset every time it reads it.
+const templateKnownChildPortKeys = templateKnownPortKeys.concat(["Offset"]);
 
 function templatePortsFromJson(ports, warnings) {
     if (!Array.isArray(ports)) { return []; }
@@ -313,20 +315,32 @@ function templatePortsFromJson(ports, warnings) {
     var usedTypes = [];
     var result = [];
 
-    var flattened = [];
+    var protocolIndex = value => {
+        var protocol = String(value == null ? "Both" : value).toLowerCase();
+        return protocolIndexes[protocol] || numericProtocolIndexes[protocol] || "0";
+    };
+
+    var passthroughFor = (port, knownKeys) => {
+        var passthrough = {};
+        for (const key of Object.keys(port)) {
+            if (knownKeys.includes(key)) { continue; }
+            passthrough[key] = port[key];
+        }
+        return passthrough;
+    };
+
+    //AMP's own defaults - one port, all of them listening - so a template that leaves them out comes back
+    //out of the generator without having gained them.
+    var rangeFrom = port => ({
+        Range: String(port.Range == null ? 1 : port.Range),
+        MinListening: String(port.MinListening == null ? 0 : port.MinListening),
+        IsDelayedOpen: port.IsDelayedOpen === true || String(port.IsDelayedOpen).toLowerCase() == "true",
+        Required: port.Required === true || String(port.Required).toLowerCase() == "true",
+    });
+
     for (const port of ports) {
         if (port == null) { continue; }
-        flattened.push(port);
-        for (const child of port.ChildPorts || []) {
-            if (child == null) { continue; }
-            //A childs port is derived from its parent in AMP, which the generator has no equivalent for.
-            flattened.push(Object.assign({}, child, { Port: child.Port != null ? child.Port : (port.Port || 0) + (child.Offset || 0) }));
-            warnings.push(`Port '${child.Name || child.Ref}' was nested under '${port.Name || port.Ref}' and has been imported as a port of its own.`);
-        }
-    }
 
-    for (const port of flattened) {
-        var protocol = String(port.Protocol == null ? "Both" : port.Protocol).toLowerCase();
         var portType = templatePortTypes[String(port.Ref || "").toLowerCase()] || "Custom Port";
 
         if (portType != "Custom Port" && usedTypes.includes(portType)) {
@@ -336,14 +350,30 @@ function templatePortsFromJson(ports, warnings) {
 
         if (portType != "Custom Port") { usedTypes.push(portType); }
 
-        var passthrough = {};
-        for (const key of Object.keys(port)) {
-            if (templateKnownPortKeys.includes(key)) { continue; }
-            passthrough[key] = port[key];
+        var childPorts = [];
+        for (const child of port.ChildPorts || []) {
+            if (child == null) { continue; }
+            //An older template can carry a stored port on a child. AMP ignores it and derives the number
+            //from the offset, so the offset is what's kept - worked back out of the port when it's missing.
+            var offset = child.Offset != null ? child.Offset
+                : (child.Port != null && port.Port != null ? child.Port - port.Port : 0);
+
+            childPorts.push(Object.assign({
+                _Protocol: protocolIndex(child.Protocol),
+                Offset: String(offset),
+                _Name: child.Name || child.Ref || "",
+                _Description: child.Description || "",
+                _Ref: child.Ref == null ? "" : String(child.Ref),
+                _Passthrough: passthroughFor(child, templateKnownChildPortKeys),
+            }, rangeFrom(child)));
+
+            if ((child.ChildPorts || []).length > 0) {
+                warnings.push(`Ports derived from '${child.Name || child.Ref}' were dropped - AMP only reads one level of derived ports.`);
+            }
         }
 
-        result.push({
-            _Protocol: protocolIndexes[protocol] || numericProtocolIndexes[protocol] || "0",
+        result.push(Object.assign({
+            _Protocol: protocolIndex(port.Protocol),
             Port: String(port.Port == null ? "" : port.Port),
             _PortType: portType,
             _Name: port.Name || port.Ref || "",
@@ -351,8 +381,9 @@ function templatePortsFromJson(ports, warnings) {
             //Kept as-is. Rebuilding it from the name would rename the port, and every {{$Ref}} in the
             //command line and the config files points at the name it had.
             _Ref: port.Ref == null ? "" : String(port.Ref),
-            _Passthrough: passthrough,
-        });
+            _ChildPorts: childPorts,
+            _Passthrough: passthroughFor(port, templateKnownPortKeys),
+        }, rangeFrom(port)));
     }
 
     return result;

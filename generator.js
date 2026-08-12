@@ -536,6 +536,39 @@ class generatorViewModel {
         this.__TakenPortTypes = ko.computed(() => self._PortMappings().map(port => port._PortType()).filter(portType => portType != "Custom Port"));
         this.__AvailablePortOptions = ko.computed(() => portTypes.filter(portType => portType == "Custom Port" || !self.__TakenPortTypes().contains(portType)));
 
+        //What the four port role settings can be pointed at. Whatever they already hold stays on offer even
+        //when no port answers to it - a template can name a port the generator has no row for, and dropping
+        //the value from the list would have the dropdown quietly rewrite it to something else on load.
+        //Parents and their children both, the way AMP flattens the list before looking a ref up.
+        this.__AllPortRefs = ko.computed(() => {
+            var refs = [];
+            for (const port of self._PortMappings()) {
+                refs.push(port.Ref());
+                for (const child of port._ChildPorts()) { refs.push(child.Ref()); }
+            }
+            return refs;
+        });
+
+        this.__PortRefOptions = ko.computed(() => {
+            var refs = self.__AllPortRefs().filter(ref => ref != "");
+            for (const ref of [self.App_PrimaryApplicationPortRef(), self.App_AdminPortRef(), self.App_UniversalSleepApplicationUDPPortRef(), self.App_UniversalSleepSteamQueryPortRef()]) {
+                if (ref != "") { refs.push(ref); }
+            }
+            return [""].concat(refs.filter((ref, index) => refs.indexOf(ref) == index));
+        });
+        //AMP resolves a role to a port by exact Ref and falls back to port 0 when it misses, so a ref with
+        //no port behind it is called out in the list rather than looking like any other choice.
+        this.__PortRefText = ref => ref == "" ? "None" : (self.__AllPortRefs().contains(ref) ? ref : `${ref} (no such port)`);
+
+        //AMP writes these as "True"/"False" text, so the checkboxes go through a computed rather than
+        //binding to the value that gets written.
+        var trueFalseChecked = observable => ko.computed({
+            read: () => observable() == "True",
+            write: value => observable(value ? "True" : "False"),
+        });
+        this.__SupportsUniversalSleepChecked = trueFalseChecked(self.App_SupportsUniversalSleep);
+        this.__UseSteamQueryForStatusChecked = trueFalseChecked(self.App_UseSteamQueryForStatus);
+
         this._ConfigFileMappings = ko.observableArray(); //of configFileMappingViewModel
         //Files an imported template shipped that the generator has no concept of. They go back into the
         //download untouched - see parseTemplateFiles.
@@ -871,7 +904,14 @@ class generatorViewModel {
             ko.quickmap.map(self, data.values || {});
 
             self._PortMappings.removeAll();
-            var mappedPorts = ko.quickmap.to(portMappingViewModel, ports, false, { __vm: self });
+            //quickmap only maps one level deep, so each port rebuilds its own child ports - see
+            //portMappingViewModel.__ApplyImportedData.
+            var mappedPorts = [];
+            for (const portData of ports) {
+                var mappedPort = new portMappingViewModel("", "", "", "Custom Port", "0", self);
+                mappedPort.__ApplyImportedData(portData || {});
+                mappedPorts.push(mappedPort);
+            }
             self._PortMappings.push.apply(self._PortMappings, mappedPorts);
 
             self._ConfigFileMappings.removeAll();
@@ -1161,6 +1201,32 @@ class generatorViewModel {
             //A custom port is identified by the Ref built from its name, so an unnamed or repeated one
             //leaves AMP with nothing to key the port on.
             var seenRefs = [];
+            //Every block of port numbers a port takes up, so two of them can be checked for landing on top
+            //of each other. AMP would move one of them out of the way when it assigns ports to an instance,
+            //which quietly breaks an application that expects them a fixed distance apart.
+            var portBlocks = [];
+            var checkRange = (port, label, firstPort) => {
+                var range = manifestInteger(port.Range());
+                if (range === null || range < 1) {
+                    failure(`The range for '${label}' is ${port.Range() == "" ? "missing" : `'${port.Range()}'`}.`, "Enter how many ports in a row it takes up - 1 for a single port.");
+                }
+                else if (firstPort !== null && firstPort + range - 1 > 65535) {
+                    failure(`'${label}' takes up ports ${firstPort} to ${firstPort + range - 1}.`, "Lower the port number or shorten the range so the whole block ends at 65535 or below.");
+                }
+
+                var minListening = manifestInteger(port.MinListening());
+                if (minListening === null || minListening < 0) {
+                    failure(`The number of ports that have to be listening for '${label}' is ${port.MinListening() == "" ? "missing" : `'${port.MinListening()}'`}.`, "Enter how many of them have to be listening, or 0 for all of them.");
+                }
+                else if (range !== null && range >= 1 && minListening > range) {
+                    warning(`'${label}' only takes up ${range} port${range == 1 ? "" : "s"}, but ${minListening} of them ${minListening == 1 ? "is" : "are"} expected to be listening.`, "Lower it to the size of the range, or to 0 for all of them.", "AMP treats it as all of them.");
+                }
+
+                if (firstPort !== null && range !== null && range >= 1) {
+                    portBlocks.push({ label: label, first: firstPort, last: firstPort + range - 1, protocol: port.Protocol() });
+                }
+            };
+
             for (const port of self._PortMappings()) {
                 if (port._PortType() == "Custom Port" && port.Ref() == "") {
                     failure(`A custom port on ${port.Port()} has no name.`, "Name the port under 'Networking' - the name is what AMP and the command line refer to it by.");
@@ -1174,6 +1240,90 @@ class generatorViewModel {
                 var portNumber = manifestInteger(port.Port());
                 if (portNumber === null || portNumber < 1025 || portNumber > 65535) {
                     failure(`The port number for '${port.Name() || "an unnamed port"}' is ${port.Port() == "" ? "missing" : `'${port.Port()}'`}.`, "Enter a port number between 1025 and 65535.", "AMP refuses port numbers of 1024 and below.");
+                }
+
+                checkRange(port, port.Name() || port.Ref() || "an unnamed port", portNumber);
+
+                //A child is keyed on its ref the same way, and AMP works its number out from the offset -
+                //so the offset has to be a whole number and can't land the child outside the port range.
+                for (const child of port._ChildPorts()) {
+                    if (child.Ref() == "") {
+                        failure(`A port derived from '${port.Name() || port.Ref()}' has no name.`, "Name it under 'Networking' - the name is what AMP and the command line refer to it by.");
+                    }
+                    else if (seenRefs.contains(child.Ref())) {
+                        failure(`More than one port is called '${child.Ref()}'.`, "Give each port its own name under 'Networking'.", "AMP keys ports on that name, so only one of them survives.");
+                    }
+
+                    if (child.Ref() != "") { seenRefs.push(child.Ref()); }
+
+                    var offset = manifestInteger(child.Offset());
+                    if (offset === null) {
+                        failure(`The offset for '${child.Ref() || "an unnamed port"}' is ${child.Offset() == "" ? "missing" : `'${child.Offset()}'`}.`, "Enter how far above the port it is derived from this one sits - 1 for the next port up.");
+                    }
+                    else if (portNumber !== null && (portNumber + offset < 1025 || portNumber + offset > 65535)) {
+                        failure(`'${child.Ref() || "An unnamed port"}' works out as port ${portNumber + offset}.`, "Change the offset so the port lands between 1025 and 65535.", "AMP refuses port numbers of 1024 and below.");
+                    }
+
+                    checkRange(child, child.Ref() || "an unnamed port", portNumber === null || offset === null ? null : portNumber + offset);
+                }
+            }
+
+            //Two ports on the same number only clash when they can be on the same protocol - a TCP port and
+            //a UDP port on 27015 are two different sockets, and applications do use both.
+            for (var i = 0; i < portBlocks.length; i++) {
+                for (var j = i + 1; j < portBlocks.length; j++) {
+                    var left = portBlocks[i];
+                    var right = portBlocks[j];
+                    if (left.first > right.last || right.first > left.last) { continue; }
+                    if (left.protocol != right.protocol && left.protocol != "Both" && right.protocol != "Both") { continue; }
+
+                    var overlap = `${Math.max(left.first, right.first)}`;
+                    if (Math.min(left.last, right.last) > Math.max(left.first, right.first)) { overlap += ` to ${Math.min(left.last, right.last)}`; }
+                    warning(`'${left.label}' and '${right.label}' both take up port ${overlap}.`, "Move one of them, or shorten the range that reaches into the other.", "AMP moves one of them somewhere else when it assigns ports to an instance, so they don't end up where the application expects.");
+                }
+            }
+
+            //AMP looks each of these up by exact Ref and uses port 0 when nothing matches, without saying so
+            //anywhere - so a role pointing at a port that isn't in the list only shows up as the feature not
+            //working on a real instance.
+            var portRefs = self.__AllPortRefs();
+            var checkPortRef = (ref, label, fix, impact) => {
+                if (ref == "") { warning(`No port is set as the ${label}.`, fix, impact); return false; }
+                if (!portRefs.contains(ref)) { failure(`The ${label} is set to '${ref}', which isn't one of the ports.`, fix, impact); return false; }
+                return true;
+            };
+
+            checkPortRef(self.App_PrimaryApplicationPortRef(), "main application port", "Choose the port players connect to under 'Networking'.", "AMP has no address for the instance, so the connect button and the endpoint on the instance list stay blank.");
+
+            switch (self.App_AdminMethod()) {
+                case "None": case "STDIO": case "PinballWizard": case "AMP_GSIO": case "FIFO": case "TailLogFile":
+                    break;
+                default:
+                    checkPortRef(self.App_AdminPortRef(), "RCON port", "Add the port the application listens for RCON on under 'Networking', then choose it as the RCON port.", "AMP tries to reach RCON on port 0, so the console and anything that runs commands never work.");
+                    break;
+            }
+
+            if (self.App_SupportsUniversalSleep() == "True") {
+                var sleepUDPRef = self.App_UniversalSleepApplicationUDPPortRef();
+                var sleepQueryRef = self.App_UniversalSleepSteamQueryPortRef();
+                var sleepUDPOK = sleepUDPRef != "" && portRefs.contains(sleepUDPRef);
+                var sleepQueryOK = sleepQueryRef != "" && portRefs.contains(sleepQueryRef);
+
+                if (sleepUDPRef != "" && !sleepUDPOK) { failure(`The sleep mode UDP port is set to '${sleepUDPRef}', which isn't one of the ports.`, "Choose one of the applications ports under 'Universal Sleep', or clear it.", "AMP listens on port 0, so packets to the application never wake it."); }
+                if (sleepQueryRef != "" && !sleepQueryOK) { failure(`The sleep mode Steam query port is set to '${sleepQueryRef}', which isn't one of the ports.`, "Choose one of the applications ports under 'Universal Sleep', or clear it.", "AMP answers queries on port 0, so the server never appears in the server list while asleep."); }
+
+                if (!sleepUDPOK && !sleepQueryOK) {
+                    failure("Sleep mode is enabled, but neither of its ports is set to a port that exists.", "Set the UDP port, the Steam query port, or both under 'Universal Sleep'.", "AMP has nothing to listen on, so a sleeping instance can never be woken by a player.");
+                }
+                else {
+                    //Everything except OnUDPPacket needs the Steam query port to be listening - that's the
+                    //socket the query and query-packet wakeups come in on.
+                    if (self.App_WakeupMode() != "OnUDPPacket" && self.App_WakeupMode() != "ManualWake" && !sleepQueryOK) {
+                        warning("The wake-up mode listens for Steam queries, but no Steam query port is set for sleep mode.", "Either set the Steam query port under 'Universal Sleep', or change the wake-up mode to 'Any UDP packet'.", "Only packets to the UDP port wake the instance.");
+                    }
+                    if (self.App_WakeupMode() == "OnUDPPacket" && !sleepUDPOK) {
+                        warning("The wake-up mode listens for UDP packets, but no UDP port is set for sleep mode.", "Either set the UDP port under 'Universal Sleep', or change the wake-up mode.", "Nothing wakes the instance automatically.");
+                    }
                 }
             }
 
@@ -1318,6 +1468,20 @@ class validationResult {
     }
 }
 
+//Range and MinListening are written the same way for a port and for one derived from it. Both are left
+//out at their defaults - AMP reads a missing Range as a single port, and a missing MinListening as "every
+//port in the range has to be listening". A value that isn't a number goes out as typed so the validation
+//failure is visible in the file rather than being quietly dropped.
+function portRangeToManifestEntry(port, entry) {
+    var range = manifestInteger(port.Range());
+    if (range === null) { if (port.Range() != "") { entry.Range = port.Range(); } }
+    else if (range != 1) { entry.Range = range; }
+
+    var minListening = manifestInteger(port.MinListening());
+    if (minListening === null) { if (port.MinListening() != "") { entry.MinListening = port.MinListening(); } }
+    else if (minListening != 0) { entry.MinListening = minListening; }
+}
+
 class portMappingViewModel {
     constructor(port = "", portName = "", portDescription = "", portType = "Custom Port", protocol = "0", vm = null) {
         var self = this;
@@ -1337,9 +1501,22 @@ class portMappingViewModel {
         this._Ref = ko.observable("");
         this.__DerivedRef = ko.computed(() => self._PortType() == "Custom Port" ? self._Name().replace(/\s+/g, "").replace(/[^a-z\d-_]/ig, "") : (self._PortType() == "Steam Query Port" ? `SteamQueryPort` : (self._PortType() == "RCON Port" ? `RemoteAdminPort` : `MainGamePort`)));
         this.Ref = ko.computed(() => self._Ref() != "" ? self._Ref() : self.__DerivedRef());
-        //Anything on the port AMP knows about that the generator has no editor for - offsets, ranges,
-        //delayed opening and so on.
+        //How many ports this one reserves, starting at the number above. AMP hands out the whole block to
+        //the instance and keeps every other instance out of it.
+        this.Range = ko.observable("1");
+        //How many of them have to be listening before AMP calls the port working. Zero means all of them.
+        this.MinListening = ko.observable("0");
+        //A port the application only opens later on - AMP says so on the status page rather than showing it
+        //as a port that should be listening and isn't.
+        this.IsDelayedOpen = ko.observable(false);
+        this.Required = ko.observable(false);
+        //Anything on the port AMP knows about that the generator has no editor for - hidden ports and
+        //anything added since.
         this._Passthrough = {};
+        this.__UsesRange = ko.computed(() => {
+            var range = manifestInteger(self.Range());
+            return range === null || range > 1;
+        });
         //Whatever is still free, plus whatever this port is already set to. Pure, so it isn't evaluated
         //until the row is rendered - __vm is attached after the object is built when a saved
         //configuration is mapped onto it. globalThis, because the constructor parameter shadows it.
@@ -1351,6 +1528,36 @@ class portMappingViewModel {
         });
         this.__RemovePort = () => self.__vm.__RemovePort(self);
 
+        //Ports AMP places relative to this one - their number is always this port plus their offset, and
+        //AMP keeps the whole group together when it assigns ports to an instance.
+        this._ChildPorts = ko.observableArray(); //of childPortViewModel
+
+        //Offset one past whatever the last child sits at, so adding several in a row doesn't stack them
+        //all on the same port.
+        this.__AddChildPort = function () {
+            var offsets = self._ChildPorts().map(child => manifestInteger(child.Offset())).filter(offset => offset !== null);
+            self._ChildPorts.push(new childPortViewModel(String(offsets.length > 0 ? Math.max.apply(null, offsets) + 1 : 1), "", "", self._Protocol(), self));
+        };
+
+        this.__RemoveChildPort = function (toRemove) {
+            self._ChildPorts.remove(toRemove);
+        };
+
+        //quickmap only maps one level deep, so the child ports are rebuilt here - see
+        //appSettingViewModel.__ApplyImportedData for the same pattern.
+        this.__ApplyImportedData = function (portData) {
+            var withoutNested = Object.assign({}, portData);
+            var childPorts = withoutNested._ChildPorts || [];
+            delete withoutNested._ChildPorts;
+
+            ko.quickmap.map(self, withoutNested);
+
+            if (self._Passthrough == null || typeof self._Passthrough !== "object") { self._Passthrough = {}; }
+
+            self._ChildPorts.removeAll();
+            self._ChildPorts.push.apply(self._ChildPorts, ko.quickmap.to(childPortViewModel, childPorts, false, { __parent: self }));
+        };
+
         //Field order follows PortRequirement, and the port number goes out as a number because that's
         //what AMP reads it into.
         this.__ToManifestEntry = function () {
@@ -1358,10 +1565,85 @@ class portMappingViewModel {
             var entry = {
                 Protocol: self.Protocol(),
                 Port: portNumber === null ? self.Port() : portNumber,
-                Ref: self.Ref(),
-                Name: self.Name(),
-                Description: self.Description(),
             };
+
+            //Left out at their defaults, the way AMP reads them when a template doesn't mention them - a
+            //single port that always has to be listening, and no delayed opening.
+            portRangeToManifestEntry(self, entry);
+
+            entry.Ref = self.Ref();
+            entry.Name = self.Name();
+            entry.Description = self.Description();
+
+            if (self.IsDelayedOpen()) { entry.IsDelayedOpen = true; }
+            if (self._ChildPorts().length > 0) { entry.ChildPorts = self._ChildPorts().map(child => child.__ToManifestEntry()); }
+            if (self.Required()) { entry.Required = true; }
+
+            for (const key of Object.keys(self._Passthrough)) {
+                if (!(key in entry)) { entry[key] = self._Passthrough[key]; }
+            }
+
+            return entry;
+        };
+    }
+}
+
+//A port AMP derives from another one. It has no number of its own - AMP computes it as the parent's port
+//plus the offset every time it's read, so nothing here is ever written into the Port field.
+class childPortViewModel {
+    constructor(offset = "1", portName = "", portDescription = "", protocol = "0", parent = null) {
+        var self = this;
+        this.__parent = parent;
+        this._Protocol = ko.observable(protocol);
+        this.Protocol = ko.computed(() => self._Protocol() == "0" ? `Both` : (self._Protocol() == "1" ? `TCP` : `UDP`));
+        this.Offset = ko.observable(offset);
+        this._Name = ko.observable(portName);
+        this._Description = ko.observable(portDescription);
+        //Same as the parent - an imported child keeps the ref it came with, a new one follows its name.
+        this._Ref = ko.observable("");
+        this.__DerivedRef = ko.computed(() => self._Name().replace(/\s+/g, "").replace(/[^a-z\d-_]/ig, ""));
+        this.Ref = ko.computed(() => self._Ref() != "" ? self._Ref() : self.__DerivedRef());
+        //A derived port reserves a block of its own too - AMP sizes the group it hands the instance from
+        //the furthest a child reaches, so a range here widens the whole thing.
+        this.Range = ko.observable("1");
+        this.MinListening = ko.observable("0");
+        this.IsDelayedOpen = ko.observable(false);
+        this.Required = ko.observable(false);
+        this._Passthrough = {};
+        this.__UsesRange = ko.computed(() => {
+            var range = manifestInteger(self.Range());
+            return range === null || range > 1;
+        });
+
+        //Shown next to the offset so it's clear what the child actually lands on. Pure, so it isn't
+        //evaluated before __parent is attached when a saved configuration is mapped onto it.
+        this.__EffectivePort = ko.pureComputed(() => {
+            var parentPort = manifestInteger(self.__parent ? self.__parent.Port() : "");
+            var offset = manifestInteger(self.Offset());
+            return parentPort === null || offset === null ? "" : String(parentPort + offset);
+        });
+
+        this.__ParentRef = ko.pureComputed(() => self.__parent ? self.__parent.Ref() : "");
+
+        this.__RemoveChildPort = () => self.__parent.__RemoveChildPort(self);
+
+        //No Port - AMP refuses to serialize a child's port for exactly this reason, a stored copy goes
+        //stale the moment the parent moves.
+        this.__ToManifestEntry = function () {
+            var offset = manifestInteger(self.Offset());
+            var entry = {
+                Protocol: self.Protocol(),
+                Offset: offset === null ? self.Offset() : offset,
+            };
+
+            portRangeToManifestEntry(self, entry);
+
+            entry.Ref = self.Ref();
+            entry.Name = self._Name();
+            entry.Description = self._Description();
+
+            if (self.IsDelayedOpen()) { entry.IsDelayedOpen = true; }
+            if (self.Required()) { entry.Required = true; }
 
             for (const key of Object.keys(self._Passthrough)) {
                 if (!(key in entry)) { entry[key] = self._Passthrough[key]; }
@@ -1452,6 +1734,10 @@ class appSettingViewModel {
         this.Placeholder = ko.observable("");
         this.Suffix = ko.observable("");
         this.Hidden = ko.observable(false);
+        //AMP's settings search skips anything read-only or taken off the page, so a setting in either
+        //state can never be found by its keywords - see SettingsSearchProvider, which reads Hidden as
+        //ReadOnly for a template setting. Keywords on one are dead weight in the manifest.
+        this.__Searchable = ko.computed(() => !self.Hidden() && normalizeInputType(self.InputType()) != "HIDDEN");
         //Blocks the application from starting while the setting is empty, naming it in the message.
         this.Required = ko.observable(false);
         this.SkipIfEmpty = ko.observable(false);
@@ -1587,10 +1873,13 @@ class appSettingViewModel {
                 Category: self.Category(),
                 Subcategory: self.Subcategory(),
                 Description: self.Description(),
-                Keywords: self.Keywords(),
-                FieldName: self.FieldName(),
-                InputType: self.InputType()
             };
+
+            //Left out for a setting AMP's search never returns - see __Searchable.
+            if (self.__Searchable()) { entry.Keywords = self.Keywords(); }
+
+            entry.FieldName = self.FieldName();
+            entry.InputType = self.InputType();
 
             if (self.__UsesRange()) {
                 var minValue = manifestNumber(self.MinValue());

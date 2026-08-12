@@ -183,11 +183,24 @@ a.nav-link.active {
 }
 
 .portTypeSelect {
-    min-width: 10.5rem;
+    min-width: 8.5rem;
 }
 
 .portProtocolSelect {
-    min-width: 6rem;
+    min-width: 5rem;
+}
+
+/* The range and offset take two or three digits at most, so they don't get the width a port number
+   needs - the ports table has enough columns in it without them. */
+.table-responsive .table input.portNarrowNumber[type="number"] {
+    min-width: 3.25rem;
+    max-width: 4.5rem;
+}
+
+/* Checkboxes stacked in one cell, tight enough not to widen the row they sit in. */
+.portFlags .form-check {
+    margin-bottom: 0;
+    white-space: nowrap;
 }
 
 .modal-body .table {

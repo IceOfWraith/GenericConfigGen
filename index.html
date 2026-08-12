@@ -472,6 +472,7 @@
                         <h4 id="networking">Networking</h4>
                         <div class="form-text">
                             AMP will automatically generate firewall rules to allow the application ports through. You may add any number of ports. Maximum of 1 Main Game, Steam Query, and RCON Port.
+                            Use 'Derived' for a port that always sits a fixed distance above another one - AMP works its number out from the port it came from and keeps the whole group together when it assigns ports to an instance.
                         </div>
                         <div class="table-responsive mb-3">
                             <table class="table mb-3">
@@ -483,6 +484,7 @@
                                         <th scope="col">Ref</th>
                                         <th scope="col">Description</th>
                                         <th scope="col">Protocol</th>
+                                        <th scope="col">Range &amp; options</th>
                                         <th></th>
                                     </tr>
                                 </thead>
@@ -511,16 +513,88 @@
                                                 <option value="2">UDP</option>
                                             </select>
                                         </td>
+                                        <td class="portFlags">
+                                            <input type="number" min="1" max="64511" class="portNarrowNumber" data-bind="value: Range" title="How many ports in a row this one takes up. AMP reserves the whole block for the instance.">
+                                            <!-- ko if: __UsesRange -->
+                                            <div class="input-group input-group-sm mt-1">
+                                                <span class="input-group-text" title="How many of them have to be listening before AMP treats the port as working. 0 means all of them.">min</span>
+                                                <input type="number" min="0" max="64511" class="portNarrowNumber" data-bind="value: MinListening">
+                                            </div>
+                                            <!-- /ko -->
+                                            <div class="form-check" title="The application only opens this port later on - AMP says so on the status page instead of showing it as a port that should be listening and isn't.">
+                                                <input class="form-check-input" type="checkbox" data-bind="checked: IsDelayedOpen">
+                                                <label class="form-check-label"><small>Opens later</small></label>
+                                            </div>
+                                            <div class="form-check" title="The application can't run without this port.">
+                                                <input class="form-check-input" type="checkbox" data-bind="checked: Required">
+                                                <label class="form-check-label"><small>Required</small></label>
+                                            </div>
+                                        </td>
                                         <td style="text-align: right;">
+                                            <button type="button" class="btn btn-outline-primary me-1" data-bind="click: __AddChildPort" title="Add a port AMP works out from this one - its number is always this port plus an offset, and AMP keeps them together when it assigns ports.">
+                                                Derived
+                                            </button>
                                             <button type="button" class="btn btn-danger" data-bind="click: __RemovePort">
                                                 Delete
                                             </button>
                                         </td>
                                     </tr>
+                                    <!-- ko foreach: _ChildPorts -->
+                                    <tr class="table-light">
+                                        <td>
+                                            <div class="input-group input-group-sm">
+                                                <span class="input-group-text">+</span>
+                                                <input type="number" min="0" max="64511" class="portNarrowNumber" data-bind="value: Offset" title="How far above the port above this one sits.">
+                                            </div>
+                                            <small class="text-muted" data-bind="text: __EffectivePort() == '' ? '' : 'Port ' + __EffectivePort()"></small>
+                                        </td>
+                                        <td>
+                                            <small class="text-muted" data-bind="text: 'Derived from ' + (__ParentRef() || 'the port above')"></small>
+                                        </td>
+                                        <td>
+                                            <input type="text" data-bind="value: _Name" placeholder="Query Port">
+                                        </td>
+                                        <td>
+                                            <input type="text" data-bind="value: _Ref, attr: { placeholder: Ref }" title="What {{$Ref}} in the command line and config files points at. Follows the name if left blank.">
+                                        </td>
+                                        <td>
+                                            <input type="text" data-bind="value: _Description">
+                                        </td>
+                                        <td>
+                                            <select class="form-select portProtocolSelect" data-bind="value: _Protocol">
+                                                <option value="0">Both</option>
+                                                <option value="1">TCP</option>
+                                                <option value="2">UDP</option>
+                                            </select>
+                                        </td>
+                                        <td class="portFlags">
+                                            <input type="number" min="1" max="64511" class="portNarrowNumber" data-bind="value: Range" title="How many ports in a row this one takes up. AMP sizes the whole group from the furthest a derived port reaches.">
+                                            <!-- ko if: __UsesRange -->
+                                            <div class="input-group input-group-sm mt-1">
+                                                <span class="input-group-text" title="How many of them have to be listening before AMP treats the port as working. 0 means all of them.">min</span>
+                                                <input type="number" min="0" max="64511" class="portNarrowNumber" data-bind="value: MinListening">
+                                            </div>
+                                            <!-- /ko -->
+                                            <div class="form-check" title="The application only opens this port later on - AMP says so on the status page instead of showing it as a port that should be listening and isn't.">
+                                                <input class="form-check-input" type="checkbox" data-bind="checked: IsDelayedOpen">
+                                                <label class="form-check-label"><small>Opens later</small></label>
+                                            </div>
+                                            <div class="form-check" title="The application can't run without this port.">
+                                                <input class="form-check-input" type="checkbox" data-bind="checked: Required">
+                                                <label class="form-check-label"><small>Required</small></label>
+                                            </div>
+                                        </td>
+                                        <td style="text-align: right;">
+                                            <button type="button" class="btn btn-danger" data-bind="click: __RemoveChildPort">
+                                                Delete
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    <!-- /ko -->
                                     <!-- /ko -->
                                     <!-- ko if: _PortMappings().length == 0 -->
                                     <tr>
-                                        <td colspan="7">No ports have been added.</td>
+                                        <td colspan="8">No ports have been added.</td>
                                     </tr>
                                     <!-- /ko -->
                                 </tbody>
@@ -548,6 +622,9 @@
                                                 <option value="2">UDP</option>
                                             </select>
                                         </td>
+                                        <td>
+                                            <small class="text-muted">One port</small>
+                                        </td>
                                         <td style="text-align: right;">
                                             <button type="button" class="btn btn-primary" data-bind="click: __AddPort">
                                                 Add
@@ -556,6 +633,74 @@
                                     </tr>
                                 </tfoot>
                             </table>
+                        </div>
+                        <div class="mb-3">
+                            <label>Port roles</label>
+                            <div class="form-text">
+                                Which of the ports above AMP uses for each job. AMP matches these on the port's Ref, and treats a
+                                ref with no port behind it as port 0 without warning anyone.
+                            </div>
+                            <div class="row">
+                                <div class="mb-3 col-6">
+                                    <label for="primaryPortRefField">Main application port</label>
+                                    <select class="form-select" id="primaryPortRefField" data-bind="options: __PortRefOptions, optionsText: __PortRefText, value: App_PrimaryApplicationPortRef, valueAllowUnset: true"></select>
+                                    <div class="form-text">The port players connect to. AMP builds the instance's address and connect button from it.</div>
+                                </div>
+                                <div class="mb-3 col-6" data-bind="visible: App_AdminMethod() != 'STDIO' &amp;&amp; App_AdminMethod() != 'None' &amp;&amp; App_AdminMethod() != 'PinballWizard' &amp;&amp; App_AdminMethod() != 'AMP_GSIO' &amp;&amp; App_AdminMethod() != 'FIFO' &amp;&amp; App_AdminMethod() != 'TailLogFile'">
+                                    <label for="adminPortRefField">RCON port</label>
+                                    <select class="form-select" id="adminPortRefField" data-bind="options: __PortRefOptions, optionsText: __PortRefText, value: App_AdminPortRef, valueAllowUnset: true"></select>
+                                    <div class="form-text">The port AMP connects to for the console and for running commands.</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label>Universal Sleep</label>
+                            <div class="form-text">
+                                Lets AMP stop the application while nobody is playing and start it again when someone tries to connect.
+                                AMP answers for the application on the ports below while it's asleep.
+                            </div>
+                            <div class="list-group mx-0">
+                                <label class="list-group-item d-flex gap-2">
+                                    <input class="form-check-input flex-shrink-0" type="checkbox" data-bind="checked: __SupportsUniversalSleepChecked">
+                                    <span>
+                                        The application supports sleep mode
+                                        <small class="d-block text-muted">
+                                            Only turn this on if the application can be stopped and started again without losing anything.
+                                        </small>
+                                    </span>
+                                </label>
+                                <label class="list-group-item d-flex gap-2">
+                                    <input class="form-check-input flex-shrink-0" type="checkbox" data-bind="checked: __UseSteamQueryForStatusChecked">
+                                    <span>
+                                        Use Steam queries for player counts
+                                        <small class="d-block text-muted">
+                                            AMP asks the server over the Steam query protocol instead of working the player count out from the console.
+                                        </small>
+                                    </span>
+                                </label>
+                            </div>
+                            <div class="row mt-3" data-bind="visible: App_SupportsUniversalSleep() == 'True'">
+                                <div class="mb-3 col-4">
+                                    <label for="wakeupModeField">Wake-up mode</label>
+                                    <select class="form-select" id="wakeupModeField" data-bind="value: App_WakeupMode">
+                                        <option value="Any">Anything (Recommended)</option>
+                                        <option value="OnUDPPacket">Any UDP packet on the application port</option>
+                                        <option value="OnSteamQuery">A Steam server query</option>
+                                        <option value="OnSteamQueryUDPPacket">Any UDP packet on the Steam query port</option>
+                                        <option value="ManualWake">Only when someone starts it themselves</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3 col-4">
+                                    <label for="sleepUDPPortRefField">UDP port to listen on</label>
+                                    <select class="form-select" id="sleepUDPPortRefField" data-bind="options: __PortRefOptions, optionsText: __PortRefText, value: App_UniversalSleepApplicationUDPPortRef, valueAllowUnset: true"></select>
+                                    <div class="form-text">Usually the port the application itself takes traffic on.</div>
+                                </div>
+                                <div class="mb-3 col-4">
+                                    <label for="sleepQueryPortRefField">Steam query port to answer on</label>
+                                    <select class="form-select" id="sleepQueryPortRefField" data-bind="options: __PortRefOptions, optionsText: __PortRefText, value: App_UniversalSleepSteamQueryPortRef, valueAllowUnset: true"></select>
+                                    <div class="form-text">Leave as None for applications that don't use the Steam query protocol.</div>
+                                </div>
+                            </div>
                         </div>
                         <div class="mb-3">
                             <label>IP binding</label>
@@ -1262,12 +1407,18 @@
                                 </label>
                                 <input type="text" class="form-control" id="settingDescriptionField" data-bind="value: Description" placeholder="The name displayed in the server browser.">
                             </div>
-                            <div class="field">
+                            <div class="field" data-bind="visible: __Searchable">
                                 <label for="settingKeywordField">
                                     Keywords
                                     <small class="fieldHelp">Used by AMP's settings search. Built from the display name if blank.</small>
                                 </label>
                                 <input type="text" class="form-control" id="settingKeywordField" data-bind="value: _Keywords, attr: { placeholder: Keywords }">
+                            </div>
+                            <div class="field" data-bind="visible: !__Searchable()">
+                                <label>
+                                    Keywords
+                                    <small class="fieldHelp">Not written for this setting - AMP's settings search leaves out anything read-only or taken off the page, so it can't be found by them.</small>
+                                </label>
                             </div>
                         </div>
                     </div>
