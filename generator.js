@@ -348,7 +348,8 @@ class generatorViewModel {
         this.App_WorkingDir = ko.computed(() => self._SteamAppID() == 0 ? 'serverfiles' : self._SteamAppID());
         this.App_ExecutableWin = ko.computed(() => self.App_WorkingDir() == "" ? self._WinExecutableName() : `${self.App_WorkingDir()}\\${self._WinExecutableName()}`);
         this.App_ExecutableLinux = ko.computed(() => self._compatibility() == "None" ? (self.App_WorkingDir() == "" ? self._LinuxExecutableName() : `${self.App_WorkingDir()}/${self._LinuxExecutableName()}`) : (self._compatibility().substring(self._compatibility().length - 4) == "Xvfb" ? '/usr/bin/xvfb-run' : (self._compatibility() == "Wine" ? '/usr/bin/wine' : '1580130/proton')));
-        this._App_LinuxCommandLineArgsCompat = ko.computed(() => self._compatibility() == "None" ? '' : (self._compatibility() == "WineXvfb" ? '-a wine \"./' + self._WinExecutableName() + '\"' : (self._compatibility() == "ProtonXvfb" ? '-a \"{{$FullRootDir}}1580130/proton\" run \"./' + self._WinExecutableName() + '\"' : (self._compatibility() == "Proton" ? 'run \"./' + self._WinExecutableName() + '\"' : '\"./' + self._WinExecutableName() + '\"'))));
+        this._WinExecutableLinuxPath = ko.computed(() => self._WinExecutableName().replace(/\\/g, "/"));
+        this._App_LinuxCommandLineArgsCompat = ko.computed(() => self._compatibility() == "None" ? '' : (self._compatibility() == "WineXvfb" ? '-a wine \"./' + self._WinExecutableLinuxPath() + '\"' : (self._compatibility() == "ProtonXvfb" ? '-a \"{{$FullRootDir}}1580130/proton\" run \"./' + self._WinExecutableLinuxPath() + '\"' : (self._compatibility() == "Proton" ? 'run \"./' + self._WinExecutableLinuxPath() + '\"' : '\"./' + self._WinExecutableLinuxPath() + '\"'))));
         this._App_LinuxCommandLineArgsInput = ko.observable("");
         this.App_LinuxCommandLineArgs = ko.computed(() => (self._App_LinuxCommandLineArgsCompat() != '' ? self._App_LinuxCommandLineArgsCompat() + ' ' + self._App_LinuxCommandLineArgsInput() : self._App_LinuxCommandLineArgsInput()).trim());
 
@@ -576,7 +577,18 @@ class generatorViewModel {
             delete asJS._AppSettings;
             delete asJS._UpdateStages;
 
-            ko.quickmap.map(self, asJS);
+            self.__ApplyImportedData({ values: asJS, ports: ports, configFiles: configFiles, settings: settings, stages: stages });
+        };
+
+        //Fills the whole view model in from plain data using the same field names an export uses - shared
+        //by importing an exported configuration and importing a finished set of template files.
+        this.__ApplyImportedData = function (data) {
+            var ports = data.ports || [];
+            var configFiles = data.configFiles || [];
+            var settings = data.settings || [];
+            var stages = data.stages || [];
+
+            ko.quickmap.map(self, data.values || {});
 
             self._PortMappings.removeAll();
             var mappedPorts = ko.quickmap.to(portMappingViewModel, ports, false, { __vm: self });
@@ -609,6 +621,10 @@ class generatorViewModel {
             self._UpdateStages.removeAll();
             var mappedStages = ko.quickmap.to(updateStageViewModel, stages, false, { __vm: self });
             self._UpdateStages.push.apply(self._UpdateStages, mappedStages);
+
+            //The one-per-configuration port types are taken back out of the dropdown as they get used.
+            var takenTypes = self._PortMappings().map(p => p._PortType());
+            self._availablePortOptions(['Custom Port', 'Main Game Port', 'Steam Query Port', 'RCON Port'].filter(option => option == 'Custom Port' || !takenTypes.includes(option)));
         };
 
         this.__IsExporting = ko.observable(false);
@@ -641,6 +657,65 @@ class generatorViewModel {
             self.__Deserialize($("#importexporttextarea").val());
             $("#importExportDialog").modal("hide");
             autoSave();
+        };
+
+        this.__ImportedFiles = ko.observableArray();
+        this.__ImportWarnings = ko.observableArray();
+
+        this.__ImportFiles = function () {
+            $("#importfilesinput").val("");
+            self.__ImportedFiles.removeAll();
+            self.__ImportWarnings.removeAll();
+            $("#importFilesDialog").modal("show");
+        };
+
+        this.__CloseImportFiles = function () {
+            $("#importFilesDialog").modal("hide");
+        };
+
+        //A finished template is a .kvp plus its manifests - either picked as loose files, or as the zip
+        //the generator produces.
+        this.__ReadTemplateFiles = async function (fileList) {
+            var files = [];
+
+            for (const file of fileList) {
+                if (file.name.toLowerCase().endsWith(".zip")) {
+                    var zip = await JSZip.loadAsync(file);
+                    var entries = Object.keys(zip.files).filter(name => !zip.files[name].dir);
+                    for (const entry of entries) {
+                        files.push({ name: entry, text: await zip.files[entry].async("string") });
+                    }
+                }
+                else {
+                    files.push({ name: file.name, text: await file.text() });
+                }
+            }
+
+            return files;
+        };
+
+        this.__DoImportFiles = async function (fileList) {
+            self.__ImportedFiles.removeAll();
+            self.__ImportWarnings.removeAll();
+
+            try {
+                var files = await self.__ReadTemplateFiles(fileList);
+                var parsed = parseTemplateFiles(files);
+
+                if (!parsed.ok) {
+                    self.__ImportWarnings.push.apply(self.__ImportWarnings, parsed.warnings);
+                    return;
+                }
+
+                self.__ApplyImportedData(parsed);
+                self.__ImportedFiles.push.apply(self.__ImportedFiles, parsed.imported);
+                self.__ImportWarnings.push.apply(self.__ImportWarnings, parsed.warnings);
+                autoSave();
+            }
+            catch (e) {
+                console.error("Could not import the selected files.", e);
+                self.__ImportWarnings.push(`Could not read the selected files - ${e.message}`);
+            }
         };
 
         this.__Share = function (data, element) {
@@ -1036,6 +1111,10 @@ function autoLoad() {
 
 document.addEventListener('DOMContentLoaded', () => {
     ko.applyBindings(vm);
+
+    document.getElementById("importfilesinput").addEventListener("change", (event) => {
+        if (event.target.files.length > 0) { vm.__DoImportFiles(event.target.files); }
+    });
     setInterval(autoSave, 30000);
     $('body').scrollspy({ target: '#navbar', offset: 90 });
 

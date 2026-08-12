@@ -25,6 +25,7 @@
     <link href="style.css" rel="stylesheet">
     <script type="text/javascript" src="common.js"></script>
     <script type="text/javascript" src="knockout.quickmap.js"></script>
+    <script type="text/javascript" src="templateimport.js"></script>
     <script src="https://code.jquery.com/jquery-3.3.1.js" integrity="sha256-2Kok7MbOyxpgUVvAk/HJ2jigOSYS2auK4Pfzbm7uH60=" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.0/dist/js/bootstrap.bundle.min.js" integrity="sha384-U1DAWAznBHeqEIlVSCgzq+c9gqGAJn5c/t99JyeKa9xxaYpSvHU5awsuZVVFIhvj" crossorigin="anonymous"></script>
     <script type="text/javascript" src="generator.js"></script>
@@ -126,7 +127,7 @@
             <main class="col-md-7 ms-sm-auto col-lg-7 px-md-4">
                 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
                     <h1 class="h2" id="logoHeader">AMP Configuration Generator</h1>
-                    <small class="d-block text-muted">Version 2.0 - Updated by IceOfWraith<br />©2023 CubeCoders Limited</small>
+                    <small class="d-block text-muted">Version 2.1 - Updated by IceOfWraith<br />©2023 CubeCoders Limited</small>
                     <div class="btn-toolbar mb-2 mb-md-0">
                         <div class="btn-group me-2">
                             <button type="button" class="btn btn-sm btn-outline-primary" data-bind="click: __Share" data-toggle="tooltip" title="Share URL copied to clipboard ✓">
@@ -148,6 +149,12 @@
                                     <path fill-rule="evenodd" d="M7.646 4.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 5.707V14.5a.5.5 0 0 1-1 0V5.707L5.354 7.854a.5.5 0 1 1-.708-.708l3-3z"></path>
                                 </svg>
                                 &nbsp;Import
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-primary" data-bind="click: __ImportFiles">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-folder" viewBox="0 0 16 16">
+                                    <path d="M.54 3.87.5 3a2 2 0 0 1 2-2h3.672a2 2 0 0 1 1.414.586l.828.828A2 2 0 0 0 9.828 3h3.982a2 2 0 0 1 1.992 2.181l-.637 7A2 2 0 0 1 13.174 14H2.826a2 2 0 0 1-1.991-1.819l-.637-7a2 2 0 0 1 .342-1.31zM2.19 4a1 1 0 0 0-.996 1.09l.637 7a1 1 0 0 0 .995.91h10.348a1 1 0 0 0 .995-.91l.637-7A1 1 0 0 0 13.81 4H2.19zm4.69-1.707A1 1 0 0 0 6.172 2H2.5a1 1 0 0 0-1 .981l.006.139q.323-.119.684-.12h5.396z"></path>
+                                </svg>
+                                &nbsp;Import Template
                             </button>
                         </div>
                     </div>
@@ -1621,6 +1628,48 @@
                 <div class="modal-footer">
                     <button type="button" class="btn btn-primary" data-bind="visible: !__IsExporting(), click: __DoImport">Import Configuration</button>
                     <button type="button" class="btn btn-secondary" data-dismiss="modal" data-bind="click: __CloseImportExport">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" tabindex="-1" role="dialog" id="importFilesDialog" data-bs-backdrop="static">
+        <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Import Existing Template</h5>
+                    <button type="button" class="close" aria-label="Close" data-bind="click: __CloseImportFiles">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <p>
+                        Select a finished configuration to carry on working on it - the <code>.kvp</code> file plus any of its
+                        manifests (<code>...config.json</code>, <code>...ports.json</code>, <code>...updates.json</code>,
+                        <code>...metaconfig.json</code>), or the <code>configs.zip</code> this generator produces.
+                        Select them all at once. An instance's own <code>GenericModule.kvp</code> works on its own, since AMP
+                        writes the ports and update stages into it.
+                    </p>
+                    <p class="p-3 mb-2 bg-warning text-dark">
+                        Importing replaces everything currently entered. Values AMP works out for itself (directories,
+                        manifest names, the display image) are rebuilt from your answers rather than imported.
+                    </p>
+                    <input type="file" class="form-control" id="importfilesinput" multiple accept=".kvp,.json,.zip">
+                    <div class="mt-3" data-bind="visible: __ImportedFiles().length > 0">
+                        <div class="h6">Imported:</div>
+                        <ul data-bind="foreach: __ImportedFiles">
+                            <li data-bind="text: $data"></li>
+                        </ul>
+                    </div>
+                    <div class="mt-3" data-bind="visible: __ImportWarnings().length > 0">
+                        <div class="h6">Things to check:</div>
+                        <ul data-bind="foreach: __ImportWarnings">
+                            <li data-bind="text: $data"></li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bind="click: __CloseImportFiles">Close</button>
                 </div>
             </div>
         </div>
