@@ -195,6 +195,18 @@
                                 <input type="url" class="form-control" id="applicationURLField" data-bind="value: Meta_URL" placeholder="https://store.steampowered.com/app/892970/Valheim/">
                             </div>
                         </div>
+                        <div class="row">
+                            <div class="mb-3 col-6">
+                                <label for="endpointUriFormatField">Connect URI</label>
+                                <div class="form-text">What AMP's "connect" button opens. Built from the Steam query port if left blank.</div>
+                                <input type="text" class="form-control" id="endpointUriFormatField" data-bind="value: _Meta_EndpointURIFormatRaw, attr: { placeholder: Meta_EndpointURIFormat }">
+                            </div>
+                            <div class="mb-3 col-6">
+                                <label for="dockerImageField">Docker Image</label>
+                                <div class="form-text">The container image AMP runs the application in. Chosen from the compatibility layer if left blank.</div>
+                                <input type="text" class="form-control" id="dockerImageField" data-bind="value: _Meta_SpecificDockerImageRaw, attr: { placeholder: Meta_SpecificDockerImage }">
+                            </div>
+                        </div>
                         <div class="mb-3">
                             <label>Which operating systems are supported?</label>
                             <div class="list-group mx-0 list-group-horizontal">
@@ -213,6 +225,41 @@
                                         Linux
                                         <small class="d-block text-muted">
                                             Runs on Linux Systems. Recommend validating on Debian 10 x86/64.
+                                        </small>
+                                    </span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="mb-3 col-6">
+                                <label for="aarchSupportField">ARM64 (aarch64) support</label>
+                                <div class="form-text">Whether the application runs on ARM64 machines such as Oracle Ampere or a Raspberry Pi.</div>
+                                <select class="form-select" id="aarchSupportField" data-bind="value: Meta_AarchSupport">
+                                    <option value="Unknown">Unknown / untested</option>
+                                    <option value="NotSupported">Not supported - x86/64 only</option>
+                                    <option value="Native">Supported natively</option>
+                                    <option value="Emulated">Supported, but only under emulation</option>
+                                </select>
+                            </div>
+                            <div class="mb-3 col-6">
+                                <label for="releaseStateField">Configuration state</label>
+                                <div class="form-text">How finished this configuration is. Anyone using your template can see this.</div>
+                                <select class="form-select" id="releaseStateField" data-bind="value: Meta_ConfigReleaseState">
+                                    <option value="NotSpecified">Not specified</option>
+                                    <option value="EarlyWorkInProgress">Early work in progress</option>
+                                    <option value="MinorIssues">Usable, with minor issues</option>
+                                    <option value="Complete">Complete</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <div class="list-group mx-0">
+                                <label class="list-group-item d-flex gap-2">
+                                    <input class="form-check-input flex-shrink-0" type="checkbox" data-bind="checked: Meta_NoCommercialUsage">
+                                    <span>
+                                        No commercial usage
+                                        <small class="d-block text-muted">
+                                            The application's licence doesn't allow it to be hosted commercially.
                                         </small>
                                     </span>
                                 </label>
@@ -357,6 +404,32 @@
                                 </label>
                             </div>
                         </div>
+                        <div class="mb-3" data-bind="visible: App_AdminMethod() != 'STDIO' &amp;&amp; App_AdminMethod() != 'PinballWizard'">
+                            <label>Remote admin password</label>
+                            <div class="form-text">
+                                Pass the password to the application with the {{$RemoteAdminPassword}} template item in its command line arguments or a configuration file.
+                            </div>
+                            <div class="list-group mx-0">
+                                <label class="list-group-item d-flex gap-2">
+                                    <input class="form-check-input flex-shrink-0" type="checkbox" data-bind="checked: App_UseRandomAdminPassword">
+                                    <span>
+                                        Generate the password automatically
+                                        <small class="d-block text-muted">
+                                            AMP makes up a password rather than the user choosing one. Recommended for anything managed over RCON.
+                                        </small>
+                                    </span>
+                                </label>
+                                <label class="list-group-item d-flex gap-2" data-bind="visible: App_UseRandomAdminPassword">
+                                    <input class="form-check-input flex-shrink-0" type="checkbox" data-bind="checked: App_PersistRandomPassword">
+                                    <span>
+                                        Keep the generated password
+                                        <small class="d-block text-muted">
+                                            Leave this off and a new password is generated every time the application starts.
+                                        </small>
+                                    </span>
+                                </label>
+                            </div>
+                        </div>
                         <!--div class="mb-3">
         <label>Are any compatibility flags required?</label>
         <div class="form-text">Generally these are not needed for modern applications</div>
@@ -400,86 +473,124 @@
                         <div class="form-text">
                             AMP will automatically generate firewall rules to allow the application ports through. You may add any number of ports. Maximum of 1 Main Game, Steam Query, and RCON Port.
                         </div>
-                        <table class="table mb-3">
-                            <thead>
-                                <tr>
-                                    <th scope="col">Number</th>
-                                    <th scope="col">Type</th>
-                                    <th scope="col">Name</th>
-                                    <th scope="col">Description</th>
-                                    <th scope="col">Protocol</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <!-- ko foreach: _PortMappings -->
-                                <tr>
-                                    <td>
-                                        <input type="number" min="1024" max="65535" value="7777" data-bind="value: Port">
-                                    </td>
-                                    <td data-bind="text: _PortType"></td>
-                                    <td>
-                                        <input type="text" data-bind="value: _Name, enable: _PortType() == 'Custom Port', attr: { placeholder: Name }">
-                                    </td>
-                                    <td>
-                                        <input type="text" placeholder="Port for main traffic" data-bind="value: _Description">
-                                    </td>
-                                    <td>
-                                        <select class="form-select" data-bind="value: _Protocol">
-                                            <option value="0">Both</option>
-                                            <option value="1">TCP</option>
-                                            <option value="2">UDP</option>
-                                        </select>
-                                    </td>
-                                    <td style="text-align: right;">
-                                        <button type="button" class="btn btn-danger" data-bind="click: __RemovePort">
-                                            Delete
-                                        </button>
-                                    </td>
-                                </tr>
-                                <!-- /ko -->
-                                <!-- ko if: _PortMappings().length == 0 -->
-                                <tr>
-                                    <td colspan="3">No ports have been added.</td>
-                                </tr>
-                                <!-- /ko -->
-                            </tbody>
-                            <tfoot>
-                                <tr>
-                                    <td>
-                                        <input type="number" min="1024" max="65535" value="7777" data-bind="value: __NewPort">
-                                    </td>
-                                    <td>
-                                        <select class="form-select" data-bind="options: _availablePortOptions, value: __NewPortType"></select>
-                                    </td>
-                                    <td>
-                                        <input type="text" placeholder="Main Game Port" data-bind="value: __NewName">
-                                    </td>
-                                    <td>
-                                        <input type="text" placeholder="Port for main traffic" data-bind="value: __NewDescription">
-                                    </td>
-                                    <td>
-                                        <select class="form-select" data-bind="value: __NewProtocol">
-                                            <option value="0">Both</option>
-                                            <option value="1">TCP</option>
-                                            <option value="2">UDP</option>
-                                        </select>
-                                    </td>
-                                    <td style="text-align: right;">
-                                        <button type="button" class="btn btn-primary" data-bind="click: __AddPort">
-                                            Add
-                                        </button>
-                                    </td>
-                                </tr>
-                            </tfoot>
-                        </table>
+                        <div class="table-responsive mb-3">
+                            <table class="table mb-3">
+                                <thead>
+                                    <tr>
+                                        <th scope="col">Number</th>
+                                        <th scope="col">Type</th>
+                                        <th scope="col">Name</th>
+                                        <th scope="col">Ref</th>
+                                        <th scope="col">Description</th>
+                                        <th scope="col">Protocol</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- ko foreach: _PortMappings -->
+                                    <tr>
+                                        <td>
+                                            <input type="number" min="1024" max="65535" value="7777" data-bind="value: Port">
+                                        </td>
+                                        <td>
+                                            <select class="form-select portTypeSelect" data-bind="options: __PortTypeOptions, value: _PortType"></select>
+                                        </td>
+                                        <td>
+                                            <input type="text" data-bind="value: _Name, enable: _PortType() == 'Custom Port', attr: { placeholder: Name }">
+                                        </td>
+                                        <td>
+                                            <input type="text" data-bind="value: _Ref, attr: { placeholder: Ref }" title="What {{$Ref}} in the command line and config files points at. Follows the name if left blank.">
+                                        </td>
+                                        <td>
+                                            <input type="text" data-bind="value: _Description, enable: _PortType() == 'Custom Port', attr: { placeholder: Description }">
+                                        </td>
+                                        <td>
+                                            <select class="form-select portProtocolSelect" data-bind="value: _Protocol">
+                                                <option value="0">Both</option>
+                                                <option value="1">TCP</option>
+                                                <option value="2">UDP</option>
+                                            </select>
+                                        </td>
+                                        <td style="text-align: right;">
+                                            <button type="button" class="btn btn-danger" data-bind="click: __RemovePort">
+                                                Delete
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    <!-- /ko -->
+                                    <!-- ko if: _PortMappings().length == 0 -->
+                                    <tr>
+                                        <td colspan="7">No ports have been added.</td>
+                                    </tr>
+                                    <!-- /ko -->
+                                </tbody>
+                                <tfoot>
+                                    <tr>
+                                        <td>
+                                            <input type="number" min="1024" max="65535" value="7777" data-bind="value: __NewPort">
+                                        </td>
+                                        <td>
+                                            <select class="form-select portTypeSelect" data-bind="options: __AvailablePortOptions, value: __NewPortType"></select>
+                                        </td>
+                                        <td>
+                                            <input type="text" placeholder="Main Game Port" data-bind="value: __NewName">
+                                        </td>
+                                        <td>
+                                            <input type="text" placeholder="From the name" disabled>
+                                        </td>
+                                        <td>
+                                            <input type="text" placeholder="Port for main traffic" data-bind="value: __NewDescription">
+                                        </td>
+                                        <td>
+                                            <select class="form-select portProtocolSelect" data-bind="value: __NewProtocol">
+                                                <option value="0">Both</option>
+                                                <option value="1">TCP</option>
+                                                <option value="2">UDP</option>
+                                            </select>
+                                        </td>
+                                        <td style="text-align: right;">
+                                            <button type="button" class="btn btn-primary" data-bind="click: __AddPort">
+                                                Add
+                                            </button>
+                                        </td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                        <div class="mb-3">
+                            <label>IP binding</label>
+                            <div class="list-group mx-0">
+                                <label class="list-group-item d-flex gap-2">
+                                    <input class="form-check-input flex-shrink-0" type="checkbox" data-bind="checked: App_ForceIPBinding">
+                                    <span>
+                                        Requires a specific IP address
+                                        <small class="d-block text-muted">
+                                            The application can't bind to 0.0.0.0 or 127.0.0.1. AMP refuses to start the instance until a real IP address is chosen for it.
+                                        </small>
+                                    </span>
+                                </label>
+                                <label class="list-group-item d-flex gap-2">
+                                    <input class="form-check-input flex-shrink-0" type="checkbox" data-bind="checked: App_SupportsIPv6">
+                                    <span>
+                                        Supports IPv6
+                                        <small class="d-block text-muted">
+                                            Leave this off unless the application can listen on an IPv6 address - AMP blocks IPv6 bindings otherwise.
+                                        </small>
+                                    </span>
+                                </label>
+                            </div>
+                        </div>
                         <br /><hr /><br />
                         <h4 id="updateSources">Update Sources</h4>
+                        <div class="form-text mb-3">
+                            The stages AMP runs, in order, when it installs or updates the application.
+                        </div>
                         <table class="table mb-3">
                             <thead>
                                 <tr>
                                     <th scope="col">Stage Name</th>
                                     <th scope="col">Source Type</th>
+                                    <th scope="col">Platform</th>
                                     <th scope="col"></th>
                                 </tr>
                             </thead>
@@ -487,7 +598,8 @@
                                 <!-- ko foreach: _UpdateStages -->
                                 <tr>
                                     <td data-bind="text: UpdateStageName"></td>
-                                    <td data-bind="text: UpdateSource"></td>
+                                    <td data-bind="text: __IsUnknown() ? _Unknown().UpdateSource + ' (not editable)' : UpdateSource()"></td>
+                                    <td data-bind="text: UpdateSourceArch() == 'All' ? UpdateSourcePlatform() : UpdateSourcePlatform() + ' / ' + UpdateSourceArch()"></td>
                                     <td style="text-align: right;">
                                         <button type="button" class="btn btn-primary" data-bind="click: __EditStage">
                                             Edit
@@ -500,7 +612,7 @@
                                 <!-- /ko -->
                                 <!-- ko if: _UpdateStages().length == 0 -->
                                 <tr>
-                                    <td colspan="6">No update sources added.</td>
+                                    <td colspan="4">No update sources added.</td>
                                 </tr>
                                 <!-- /ko -->
                             </tbody>
@@ -510,6 +622,52 @@
                                     <td colspan="2" style="text-align: right;">
                                         <button type="button" class="btn btn-primary" data-bind="click: __AddStage">
                                             Add Stage
+                                        </button>
+                                    </td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                        <h5 id="preStartStages">Pre-Start Stages</h5>
+                        <div class="form-text mb-3">
+                            The same kind of stages, but run before every start rather than only when updating. Use them for anything that has to happen each time the application comes up.
+                        </div>
+                        <table class="table mb-3">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Stage Name</th>
+                                    <th scope="col">Source Type</th>
+                                    <th scope="col">Platform</th>
+                                    <th scope="col"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- ko foreach: _PreStartStages -->
+                                <tr>
+                                    <td data-bind="text: UpdateStageName"></td>
+                                    <td data-bind="text: __IsUnknown() ? _Unknown().UpdateSource + ' (not editable)' : UpdateSource()"></td>
+                                    <td data-bind="text: UpdateSourceArch() == 'All' ? UpdateSourcePlatform() : UpdateSourcePlatform() + ' / ' + UpdateSourceArch()"></td>
+                                    <td style="text-align: right;">
+                                        <button type="button" class="btn btn-primary" data-bind="click: __EditStage">
+                                            Edit
+                                        </button>
+                                        <button type="button" class="btn btn-danger" data-bind="click: __RemoveStage">
+                                            Delete
+                                        </button>
+                                    </td>
+                                </tr>
+                                <!-- /ko -->
+                                <!-- ko if: _PreStartStages().length == 0 -->
+                                <tr>
+                                    <td colspan="4">No pre-start stages added.</td>
+                                </tr>
+                                <!-- /ko -->
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="2"></td>
+                                    <td colspan="2" style="text-align: right;">
+                                        <button type="button" class="btn btn-primary" data-bind="click: __AddPreStartStage">
+                                            Add Pre-Start Stage
                                         </button>
                                     </td>
                                 </tr>
@@ -572,6 +730,7 @@
                                     <th scope="col">Config File</th>
                                     <th scope="col">Config Type</th>
                                     <th scope="col">AutoMap</th>
+                                    <th scope="col">Importable</th>
                                     <th></th>
                                 </tr>
                             </thead>
@@ -593,6 +752,9 @@
                                     <td>
                                         <input type="checkbox" data-bind="checked: _AutoMap">
                                     </td>
+                                    <td>
+                                        <input type="checkbox" data-bind="checked: Importable" title="Lets the user import their own copy of this file over the settings.">
+                                    </td>
                                     <td style="text-align: right;">
                                         <button type="button" class="btn btn-danger" data-bind="click: __RemoveConfigFile">
                                             Delete Config File
@@ -602,7 +764,7 @@
                                 <!-- /ko -->
                                 <!-- ko if: _ConfigFileMappings().length == 0 -->
                                 <tr>
-                                    <td colspan="3">No config files have been added.</td>
+                                    <td colspan="5">No config files have been added.</td>
                                 </tr>
                                 <!-- /ko -->
                             </tbody>
@@ -623,6 +785,7 @@
                                     <td>
                                         <input type="checkbox" data-bind="checked: __NewAutoMap">
                                     </td>
+                                    <td></td>
                                     <td style="text-align: right;">
                                         <button type="button" class="btn btn-primary" data-bind="click: __AddConfigFile">
                                             Add Config File
@@ -762,6 +925,26 @@
                                 </label>
                             </div>
                         </div>
+                        <div class="mb-3" data-bind="visible: _SupportsLinux">
+                            <label for="monitorChildProcessField">Child process to monitor (Optional)</label>
+                            <div class="form-text">
+                                For applications that launch the real server as a child process - a regular expression matching that process's command line. AMP will report its CPU and memory usage instead of the launcher's. Linux only.
+                            </div>
+                            <input type="text" class="form-control" id="monitorChildProcessField" data-bind="value: App_MonitorChildProcessName, valueUpdate: 'input'" placeholder="ShooterGameServer">
+                        </div>
+                        <div class="mb-3" data-bind="visible: _SupportsLinux() &amp;&amp; App_MonitorChildProcessName() != ''">
+                            <div class="list-group mx-0">
+                                <label class="list-group-item d-flex gap-2">
+                                    <input class="form-check-input flex-shrink-0" type="checkbox" data-bind="checked: App_MonitorDirectChildOnly">
+                                    <span>
+                                        Only match this instance's own child processes
+                                        <small class="d-block text-muted">
+                                            Ignore matching processes that don't belong to this instance. Needed when several instances of the same application run on one machine.
+                                        </small>
+                                    </span>
+                                </label>
+                            </div>
+                        </div>
                         <h5>Shutdown</h5>
                         <div class="row">
                             <div class="mb-3 col-6">
@@ -784,6 +967,22 @@
                             <div class="mb-3 col-6" data-bind="visible: App_ExitMethod() == 'String'">
                                 <label for="applicationStopCommandField">Command to send</label>
                                 <input type="text" class="form-control" id="applicationStopCommandField" data-bind="value: App_ExitString">
+                            </div>
+                            <div class="mb-3 col-6" data-bind="visible: _SupportsWindows() &amp;&amp; _SupportsLinux()">
+                                <label>Windows Shutdown Method (Optional)</label>
+                                <div class="form-text">
+                                    Used in place of the method above when the instance runs on Windows.
+                                </div>
+                                <select class="form-select" data-bind="value: App_ExitMethodWindows">
+                                    <option value="None">Same as above</option>
+                                    <option value="String">Run a command on the server</option>
+                                    <option value="OS_CLOSE">Request via OS</option>
+                                    <option value="Kill">Kill Process Immediately</option>
+                                    <option value="EndStream">End STDIO stream</option>
+                                    <option value="CtrlC">Send CTRL+C literal</option>
+                                    <option value="WM_CLOSE">Send WM_CLOSE message</option>
+                                    <option value="WM_QUIT">Send WM_QUIT message</option>
+                                </select>
                             </div>
                         </div>
                         <br /><hr /><br />
@@ -838,7 +1037,9 @@
                                     AMP will transition from the 'starting' to the 'ready' state when matched and using 'Wait for message as the Startup Confirmation Mode.
                                 </small>
                             </label>
-                            <input type="text" class="form-control" id="appReadyExprField" data-bind="value: _Console_AppReadyRegex" placeholder="Server is ready.">
+                            <input type="text" class="form-control" id="appReadyExprField" data-bind="value: _Console_AppReadyRegex, valueUpdate: 'input'" placeholder="Server is ready.">
+                            <div class="form-text">Expression - built from the line above, or type one straight in if you already have it.</div>
+                            <input type="text" class="form-control" id="appReadyRegexField" data-bind="value: _Console_AppReadyRegexRaw, enable: _Console_AppReadyRegex() == '', attr: { placeholder: Console_AppReadyRegex }">
                         </div>
                         <div class="mb-3">
                             <label for="appUserConnExprField">
@@ -847,7 +1048,9 @@
                                     Must contain a *{username}, *{userid}, or *{sessionid} and optionally an *{endpoint}.
                                 </small>
                             </label>
-                            <input type="text" class="form-control" id="appUserConnExprField" data-bind="value: _Console_UserJoinRegex" placeholder="User *{username} (*{userid}) connected from [*{endpoint}]">
+                            <input type="text" class="form-control" id="appUserConnExprField" data-bind="value: _Console_UserJoinRegex, valueUpdate: 'input'" placeholder="User *{username} (*{userid}) connected from [*{endpoint}]">
+                            <div class="form-text">Expression - built from the line above, or type one straight in if you already have it.</div>
+                            <input type="text" class="form-control" id="appUserConnRegexField" data-bind="value: _Console_UserJoinRegexRaw, enable: _Console_UserJoinRegex() == '', attr: { placeholder: Console_UserJoinRegex }">
                         </div>
                         <div class="mb-3">
                             <label for="appUserDisconnExprField">
@@ -856,7 +1059,9 @@
                                     Must contain a *{username}, *{userid}, or *{sessionid}. Must match a variable that was used in the User connected expression.
                                 </small>
                             </label>
-                            <input type="text" class="form-control" id="appUserDisconnExprField" data-bind="value: _Console_UserLeaveRegex" placeholder="User *{username} (*{userid}) disconnected. Reason: *{misc}">
+                            <input type="text" class="form-control" id="appUserDisconnExprField" data-bind="value: _Console_UserLeaveRegex, valueUpdate: 'input'" placeholder="User *{username} (*{userid}) disconnected. Reason: *{misc}">
+                            <div class="form-text">Expression - built from the line above, or type one straight in if you already have it.</div>
+                            <input type="text" class="form-control" id="appUserDisconnRegexField" data-bind="value: _Console_UserLeaveRegexRaw, enable: _Console_UserLeaveRegex() == '', attr: { placeholder: Console_UserLeaveRegex }">
                         </div>
                         <div class="mb-3">
                             <label for="appChatExprField">
@@ -865,7 +1070,18 @@
                                     Must have either a *{username} or *{userid} plus a *{message}.
                                 </small>
                             </label>
-                            <input type="text" class="form-control" id="appChatExprField" data-bind="value: _Console_UserChatRegex" placeholder="*{username}: *{message}">
+                            <input type="text" class="form-control" id="appChatExprField" data-bind="value: _Console_UserChatRegex, valueUpdate: 'input'" placeholder="*{username}: *{message}">
+                            <div class="form-text">Expression - built from the line above, or type one straight in if you already have it.</div>
+                            <input type="text" class="form-control" id="appChatRegexField" data-bind="value: _Console_UserChatRegexRaw, enable: _Console_UserChatRegex() == '', attr: { placeholder: Console_UserChatRegex }">
+                        </div>
+                        <div class="mb-3">
+                            <label for="hideFromConsoleExprField">
+                                Hide from console expression (Optional)
+                                <small class="d-block text-muted">
+                                    A plain regular expression - matching lines are kept out of the console AMP shows. Useful for spammy output. The *{...} variables above don't apply to this one.
+                                </small>
+                            </label>
+                            <input type="text" class="form-control" id="hideFromConsoleExprField" data-bind="value: Console_HideFromConsoleRegex" placeholder="^\[Debug\].*$">
                         </div>
                         <br /><hr /><br />
                         <h4 id="validateReview">Validate and Review</h4>
@@ -1003,7 +1219,7 @@
     </div>
 
     <div class="modal fade" tabindex="-1" role="dialog" id="addEditSettingModal" data-bs-backdrop="static" data-bind="with: __AddEditSetting">
-        <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable" role="document">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" data-bind="text: __vm.__IsEditingSetting() ? 'Edit Setting' : 'Add New Setting'"></h5>
@@ -1012,245 +1228,590 @@
                     </button>
                 </div>
                 <div class="modal-body">
-                    <div class="row">
-                        <div class="mb-3 col-6">
-                            <label for="settingDispNameField">
-                                Display Name
-                                <small class="d-block text-muted">
-                                    The name of the setting as it will appear within AMPs configuration page.
-                                </small>
-                            </label>
-                            <input type="text" class="form-control" id="settingDispNameField" data-bind="value: DisplayName" placeholder="Server Name">
+                    <div class="modalSection">
+                        <div class="modalSectionTitle">Identity</div>
+                        <hr class="modalSectionRule" />
+                        <div class="fieldRow">
+                            <div class="field">
+                                <label for="settingDispNameField">
+                                    Display Name
+                                    <small class="fieldHelp">The name shown on AMP's configuration page.</small>
+                                </label>
+                                <input type="text" class="form-control" id="settingDispNameField" data-bind="value: DisplayName" placeholder="Server Name">
+                            </div>
+                            <div class="field">
+                                <label for="settingFieldNameField">
+                                    Field Name
+                                    <small class="fieldHelp">The name AMP stores this setting under.</small>
+                                </label>
+                                <input type="text" class="form-control" id="settingFieldNameField" data-bind="value: FieldName" placeholder="ServerName">
+                            </div>
+                            <div class="field">
+                                <label for="settingParamFieldNameField">
+                                    Config File / Argument Name
+                                    <small class="fieldHelp">The ini Section.Key, XML XPath, template token or argument key. Blank uses the field name.</small>
+                                </label>
+                                <input type="text" class="form-control" id="settingParamFieldNameField" data-bind="value: _ParamFieldName, attr: { placeholder: ParamFieldName }">
+                            </div>
                         </div>
-                        <div class="mb-3 col-3">
-                            <label for="settingCategoryField">
-                                Category
-                                <small class="d-block text-muted">
-                                    Settings within the same category are automatically grouped together. Format is Name:icon.
-                                </small>
-                            </label>
-                            <input type="text" class="form-control" id="settingCategoryField" data-bind="value: _Category, attr: { placeholder: Category }">
-                        </div>
-                        <div class="mb-3 col-3">
-                            <label for="settingSubcategoryField">
-                                Subcategory
-                                <small class="d-block text-muted">
-                                    The tab the setting appears under within the category. Format is Name:icon:order.
-                                </small>
-                            </label>
-                            <input type="text" class="form-control" id="settingSubcategoryField" data-bind="value: Subcategory" placeholder="Server:dns:1">
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="mb-3 col-6">
-                            <label for="settingDescriptionField">
-                                Description
-                                <small class="d-block text-muted">
-                                    A brief explanation as to what the setting does and what effect it will have.
-                                </small>
-                            </label>
-                            <input type="text" class="form-control" id="settingDescriptionField" data-bind="value: Description" placeholder="The name displayed in server browser.">
-                        </div>
-                        <div class="mb-3 col-6">
-                            <label for="settingKeywordField">
-                                Keywords
-                                <small class="d-block text-muted">
-                                    Keywords that relate to this setting. AMP uses these to help users find settings when using the search box.
-                                </small>
-                            </label>
-                            <input type="text" class="form-control" id="settingKeywordField" data-bind="value: _Keywords, attr: { placeholder: Keywords }">
+                        <div class="fieldRow">
+                            <div class="field wide">
+                                <label for="settingDescriptionField">
+                                    Description
+                                    <small class="fieldHelp">What the setting does and what effect it has.</small>
+                                </label>
+                                <input type="text" class="form-control" id="settingDescriptionField" data-bind="value: Description" placeholder="The name displayed in the server browser.">
+                            </div>
+                            <div class="field">
+                                <label for="settingKeywordField">
+                                    Keywords
+                                    <small class="fieldHelp">Used by AMP's settings search. Built from the display name if blank.</small>
+                                </label>
+                                <input type="text" class="form-control" id="settingKeywordField" data-bind="value: _Keywords, attr: { placeholder: Keywords }">
+                            </div>
                         </div>
                     </div>
-                    <div class="row">
-                        <div class="mb-3 col-6">
-                            <label for="settingFieldNameField">
-                                Field Name
-                                <small class="d-block text-muted">
-                                    The name of the command line argument that this setting controls. Used as the arguments key.
-                                </small>
-                            </label>
-                            <input type="text" class="form-control" id="settingFieldNameField" data-bind="value: FieldName" placeholder="ServerName">
-                        </div>
-                        <div class="mb-3 col-6">
-                            <label for="settingInputTypeField">
-                                Input Type
-                                <small class="d-block text-muted">
-                                    Controls what interface is displayed to the user when editing this setting.
-                                </small>
-                            </label>
-                            <select class="form-select" id="settingInputTypeField" data-bind="value: InputType">
-                                <option value="checkbox">Checkbox</option>
-                                <option value="enum">Drop-down List</option>
-                                <option value="number">Number</option>
-                                <option value="password">Password</option>
-                                <option value="RandomPassword">Random Password</option>
-                                <option value="text">Text</option>
-                                <option value="Textarea">Text Area</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="mb-3 col-6">
-                            <label for="settingDefaultValueField">
-                                Default Value
-                                <small class="d-block text-muted">
-                                    The value that this setting will have by default until changed.
-                                </small>
-                            </label>
-                            <input type="text" class="form-control" id="settingDefaultValueField" data-bind="value: DefaultValue" placeholder="AMP Powered Server">
-                        </div>
-                        <div class="mb-3 col-3" data-bind="visible: InputType() != 'checkbox' && InputType() != 'enum'">
-                            <label for="settingPlaceholderField">
-                                Placeholder
-                                <small class="d-block text-muted">
-                                    Shown in the input while it is empty. Left out of the config if blank.
-                                </small>
-                            </label>
-                            <input type="text" class="form-control" id="settingPlaceholderField" data-bind="value: Placeholder">
-                        </div>
-                        <div class="mb-3 col-3" data-bind="visible: InputType() != 'checkbox' && InputType() != 'enum' && InputType() != 'password'">
-                            <label for="settingSuffixField">
-                                Suffix
-                                <small class="d-block text-muted">
-                                    A unit of measure for the input.
-                                </small>
-                            </label>
-                            <input type="text" class="form-control" id="settingSuffixField" data-bind="value: Suffix" placeholder="seconds">
+
+                    <div class="modalSection">
+                        <div class="modalSectionTitle">Placement</div>
+                        <hr class="modalSectionRule" />
+                        <div class="fieldRow">
+                            <div class="field">
+                                <label for="settingCategoryField">
+                                    Category
+                                    <small class="fieldHelp">Groups settings together. Format is Name:icon.</small>
+                                </label>
+                                <input type="text" class="form-control" id="settingCategoryField" data-bind="value: _Category, attr: { placeholder: Category }">
+                            </div>
+                            <div class="field">
+                                <label for="settingSubcategoryField">
+                                    Subcategory
+                                    <small class="fieldHelp">The tab within the category. Format is Name:icon:order.</small>
+                                </label>
+                                <input type="text" class="form-control" id="settingSubcategoryField" data-bind="value: Subcategory" placeholder="Server:dns:1">
+                            </div>
+                            <div class="field narrow">
+                                <label for="settingOrderField">
+                                    Order
+                                    <small class="fieldHelp">Lower comes first. AMP uses 10 by default.</small>
+                                </label>
+                                <input type="number" step="1" class="form-control" id="settingOrderField" data-bind="value: Order" placeholder="10">
+                            </div>
                         </div>
                     </div>
-                    <div class="row" data-bind="visible: InputType() == 'number'">
-                        <div class="mb-3 col-6">
-                            <label for="settingMinValueField">
-                                Minimum Value
-                                <small class="d-block text-muted">
-                                    The lowest value the user may enter. Left out of the config if blank.
-                                </small>
-                            </label>
-                            <input type="text" class="form-control" id="settingMinValueField" data-bind="value: MinValue" placeholder="1">
+
+                    <div class="modalSection">
+                        <div class="modalSectionTitle">Input</div>
+                        <hr class="modalSectionRule" />
+                        <div class="fieldRow">
+                            <div class="field">
+                                <label for="settingInputTypeField">
+                                    Input Type
+                                    <small class="fieldHelp">The control the user is given for this setting.</small>
+                                </label>
+                                <select class="form-select" id="settingInputTypeField" data-bind="value: InputType">
+                                    <option value="checkbox">Checkbox</option>
+                                    <option value="enum">Drop-down List</option>
+                                    <option value="list">List of Values</option>
+                                    <option value="number">Number</option>
+                                    <option value="Password">Password</option>
+                                    <option value="Radio">Radio Buttons</option>
+                                    <option value="RandomPassword">Random Password</option>
+                                    <option value="range">Slider</option>
+                                    <option value="text">Text</option>
+                                    <option value="Textarea">Text Area</option>
+                                    <option value="URL">URL</option>
+                                    <option value="UserPassword">User Password</option>
+                                </select>
+                            </div>
+                            <div class="field">
+                                <label for="settingDefaultValueField">
+                                    Default Value
+                                    <small class="fieldHelp">What the setting holds until the user changes it.</small>
+                                </label>
+                                <input type="text" class="form-control" id="settingDefaultValueField" data-bind="value: DefaultValue" placeholder="AMP Powered Server">
+                            </div>
+                            <div class="field" data-bind="visible: __UsesPlaceholder()">
+                                <label for="settingPlaceholderField">
+                                    Placeholder
+                                    <small class="fieldHelp">Shown in the input while it is empty.</small>
+                                </label>
+                                <input type="text" class="form-control" id="settingPlaceholderField" data-bind="value: Placeholder">
+                            </div>
+                            <div class="field narrow" data-bind="visible: __UsesSuffix()">
+                                <label for="settingSuffixField">
+                                    Suffix
+                                    <small class="fieldHelp">A unit shown after the input.</small>
+                                </label>
+                                <input type="text" class="form-control" id="settingSuffixField" data-bind="value: Suffix" placeholder="seconds">
+                            </div>
                         </div>
-                        <div class="mb-3 col-6">
-                            <label for="settingMaxValueField">
-                                Maximum Value
-                                <small class="d-block text-muted">
-                                    The highest value the user may enter. Left out of the config if blank.
-                                </small>
-                            </label>
-                            <input type="text" class="form-control" id="settingMaxValueField" data-bind="value: MaxValue" placeholder="64">
+                        <div class="fieldRow" data-bind="visible: __UsesRange() || __UsesMaxLength()">
+                            <div class="field narrow" data-bind="visible: __UsesRange()">
+                                <label for="settingMinValueField">
+                                    Minimum
+                                    <small class="fieldHelp">AMP rejects anything lower.</small>
+                                </label>
+                                <input type="number" step="any" class="form-control" id="settingMinValueField" data-bind="value: MinValue" placeholder="1">
+                            </div>
+                            <div class="field narrow" data-bind="visible: __UsesRange()">
+                                <label for="settingMaxValueField">
+                                    Maximum
+                                    <small class="fieldHelp">AMP rejects anything higher.</small>
+                                </label>
+                                <input type="number" step="any" class="form-control" id="settingMaxValueField" data-bind="value: MaxValue" placeholder="64">
+                            </div>
+                            <div class="field narrow" data-bind="visible: __UsesRange()">
+                                <label for="settingMultipleOfField">
+                                    Multiple Of
+                                    <small class="fieldHelp">Rounded to the nearest multiple of this.</small>
+                                </label>
+                                <input type="number" step="any" class="form-control" id="settingMultipleOfField" data-bind="value: MultipleOf" placeholder="8">
+                            </div>
+                            <div class="field narrow" data-bind="visible: __UsesRange()">
+                                <label for="settingMultiplierField">
+                                    Multiplier
+                                    <small class="fieldHelp">Scales the value on the way out, for a different unit.</small>
+                                </label>
+                                <input type="number" step="any" class="form-control" id="settingMultiplierField" data-bind="value: Multiplier" placeholder="60">
+                            </div>
+                            <div class="field narrow" data-bind="visible: __UsesMaxLength()">
+                                <label for="settingMaxLengthField">
+                                    Max Length
+                                    <small class="fieldHelp">Longest value, in characters.</small>
+                                </label>
+                                <input type="number" step="1" min="1" class="form-control" id="settingMaxLengthField" data-bind="value: MaxLength" placeholder="32">
+                            </div>
+                        </div>
+                        <div class="fieldRow" data-bind="visible: InputType() == 'checkbox'">
+                            <div class="field">
+                                <label for="settingCheckedValueField">
+                                    Checked Value
+                                    <small class="fieldHelp">The value written out when the box is ticked.</small>
+                                </label>
+                                <input type="text" class="form-control" id="settingCheckedValueField" data-bind="value: _CheckedValue">
+                            </div>
+                            <div class="field">
+                                <label for="settingUncheckedValueField">
+                                    Unchecked Value
+                                    <small class="fieldHelp">The value written out when it isn't.</small>
+                                </label>
+                                <input type="text" class="form-control" id="settingUncheckedValueField" data-bind="value: _UncheckedValue">
+                            </div>
+                        </div>
+                        <div class="fieldRow">
+                            <div class="field full">
+                                <label for="settingSpecialField">
+                                    Special Source
+                                    <small class="fieldHelp">Drives the value from something other than the stored setting. Formats are listfile:&lt;path&gt;, fileexists:&lt;present&gt;:&lt;missing&gt;:&lt;path&gt;, array:number and array:text. Leave blank for an ordinary setting.</small>
+                                </label>
+                                <input type="text" class="form-control" id="settingSpecialField" data-bind="value: Special" placeholder="array:text">
+                            </div>
                         </div>
                     </div>
-                    <div class="row">
-                        <div class="mb-3 col-6">
-                            <label>
-                                <input class="form-check-input" type="checkbox" data-bind="checked: Hidden">
-                                <span>
-                                    Hidden Setting
-                                    <small class="d-block text-muted">
-                                        Allows a setting to be hidden from GUI, but used in command line or setting files.
-                                    </small>
-                                </span>
-                            </label>
-                        </div>
-                        <div class="mb-3 col-6">
-                            <label>
-                                <input class="form-check-input" type="checkbox" data-bind="checked: IncludeInCommandLine">
-                                <span>
-                                    Include in formatted command line
-                                    <small class="d-block text-muted">
-                                        This setting controls a command line argument/flag.
-                                    </small>
-                                </span>
-                            </label>
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="mb-3 col-6" data-bind="visible: IncludeInCommandLine()">
-                            <label>
-                                <input class="form-check-input" type="checkbox" data-bind="checked: SkipIfEmpty">
-                                <span>
-                                    Skip If Empty
-                                    <small class="d-block text-muted">
-                                        The Command Line Arg will be excluded if no value is entered.
-                                    </small>
-                                </span>
-                            </label>
-                        </div>
-                        <div class="mb-3 col-6" data-bind="visible: InputType() == 'checkbox' && IncludeInCommandLine()">
-                            <label>
-                                <input class="form-check-input" type="checkbox" data-bind="checked: IsFlagArgument">
-                                <span>
-                                    Is a flag argument
-                                    <small class="d-block text-muted">
-                                        For checkbox based settings, the checkbox being on will add the 'True' value as a flag without using the field name as a key.
-                                    </small>
-                                </span>
-                            </label>
-                        </div>
-                        <table class="table mb-3" data-bind="visible: InputType() == 'enum'">
+
+                    <div class="modalSection" data-bind="visible: __UsesEnumValues()">
+                        <div class="modalSectionTitle">Options</div>
+                        <div class="modalSectionHelp">The choices offered to the user. The key is what gets written into the config file or command line, the value is what the user sees.</div>
+                        <table class="table">
                             <thead>
                                 <tr>
-                                    <th scope="col">Key (Placed in config file/startup args)</th>
-                                    <th scope="col">Value (Presented to user)</th>
+                                    <th scope="col">Key</th>
+                                    <th scope="col">Label</th>
                                     <th></th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <!-- ko foreach: _EnumMappings -->
                                 <tr>
-                                    <td>
-                                        <input type="text" data-bind="value: _enumKey">
-                                    </td>
-                                    <td>
-                                        <input type="text" data-bind="value: _enumValue">
-                                    </td>
+                                    <td><input type="text" data-bind="value: _enumKey"></td>
+                                    <td><input type="text" data-bind="value: _enumValue"></td>
                                     <td style="text-align: right;">
                                         <button type="button" class="btn btn-danger" data-bind="click: __RemoveEnum">
-                                            Delete Enum
+                                            Delete
                                         </button>
                                     </td>
                                 </tr>
                                 <!-- /ko -->
                                 <!-- ko if: _EnumMappings().length == 0 -->
                                 <tr>
-                                    <td colspan="3">No entries have been added.</td>
+                                    <td colspan="3">No options have been added.</td>
                                 </tr>
                                 <!-- /ko -->
                             </tbody>
                             <tfoot>
                                 <tr>
-                                    <td>
-                                        <input type="text" data-bind="value: __NewEnumKey">
-                                    </td>
-                                    <td>
-                                        <input type="text" data-bind="value: __NewEnumValue">
-                                    </td>
+                                    <td><input type="text" data-bind="value: __NewEnumKey"></td>
+                                    <td><input type="text" data-bind="value: __NewEnumValue"></td>
                                     <td style="text-align: right;">
                                         <button type="button" class="btn btn-primary" data-bind="click: __AddEnum">
-                                            Add Enum
+                                            Add Option
                                         </button>
                                     </td>
                                 </tr>
                             </tfoot>
                         </table>
                     </div>
-                    <div class="row" data-bind="visible: InputType() == 'checkbox'">
-                        <div class="mb-3 col-6">
-                            <label for="settingCheckedValueField">
-                                Checked Value
-                                <small class="d-block text-muted">
-                                    The value used for this setting if it is checked.
-                                </small>
+
+                    <div class="modalSection">
+                        <div class="modalSectionTitle">Behaviour</div>
+                        <hr class="modalSectionRule" />
+                        <div class="checkRow">
+                            <label class="checkTile">
+                                <input class="form-check-input" type="checkbox" data-bind="checked: Required">
+                                <span>
+                                    <span class="checkLabel">Required</span>
+                                    <small class="fieldHelp">AMP refuses to start the application while this setting is empty.</small>
+                                </span>
                             </label>
-                            <input type="text" class="form-control" id="settingCheckedValueField" data-bind="value: _CheckedValue">
-                        </div>
-                        <div class="mb-3 col-6">
-                            <label for="settingUncheckedValueField">
-                                Unchecked Value
-                                <small class="d-block text-muted">
-                                    The value used for this setting if it is not checked.
-                                </small>
+                            <label class="checkTile">
+                                <input class="form-check-input" type="checkbox" data-bind="checked: Hidden">
+                                <span>
+                                    <span class="checkLabel">Read-only</span>
+                                    <small class="fieldHelp">Still shown, but the user cannot change it. Use the HIDDEN input type to remove it from the page.</small>
+                                </span>
                             </label>
-                            <input type="text" class="form-control" id="settingUncheckedValueField" data-bind="value: _UncheckedValue">
+                            <label class="checkTile">
+                                <input class="form-check-input" type="checkbox" data-bind="checked: ExcludeFromImport">
+                                <span>
+                                    <span class="checkLabel">Exclude from config import</span>
+                                    <small class="fieldHelp">Left alone when AMP imports an existing configuration file.</small>
+                                </span>
+                            </label>
+                            <label class="checkTile">
+                                <input class="form-check-input" type="checkbox" data-bind="checked: IncludeInCommandLine">
+                                <span>
+                                    <span class="checkLabel">Include in command line</span>
+                                    <small class="fieldHelp">This setting controls a command line argument or flag.</small>
+                                </span>
+                            </label>
+                            <label class="checkTile" data-bind="visible: IncludeInCommandLine()">
+                                <input class="form-check-input" type="checkbox" data-bind="checked: SkipIfEmpty">
+                                <span>
+                                    <span class="checkLabel">Skip if empty</span>
+                                    <small class="fieldHelp">The argument is left off entirely when no value is entered.</small>
+                                </span>
+                            </label>
+                            <label class="checkTile" data-bind="visible: InputType() == 'checkbox' && IncludeInCommandLine()">
+                                <input class="form-check-input" type="checkbox" data-bind="checked: IsFlagArgument">
+                                <span>
+                                    <span class="checkLabel">Is a flag argument</span>
+                                    <small class="fieldHelp">Ticking the box adds a bare flag rather than a key and value pair.</small>
+                                </span>
+                            </label>
                         </div>
+                        <div class="fieldRow" data-bind="visible: IsFlagArgument() && IncludeInCommandLine()" style="margin-top: 1rem;">
+                            <div class="field">
+                                <label for="settingFlagValueField">
+                                    Flag Value
+                                    <small class="fieldHelp">What gets added to the command line when the flag is on. AMP falls back to the default value if this is blank.</small>
+                                </label>
+                                <input type="text" class="form-control" id="settingFlagValueField" data-bind="value: FlagValue" placeholder="-batchmode">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="modalSection">
+                        <div class="modalSectionTitle">Option Sources</div>
+                        <div class="modalSectionHelp">Fills the list of options in for the user rather than listing them by hand.</div>
+                        <div class="checkRow">
+                            <label class="checkTile">
+                                <input class="form-check-input" type="checkbox" data-bind="checked: UseToolDiscovery">
+                                <span>
+                                    <span class="checkLabel">Find installed tools</span>
+                                    <small class="fieldHelp">AMP searches the machine for versioned installs of a runtime such as Java or .NET.</small>
+                                </span>
+                            </label>
+                            <label class="checkTile">
+                                <input class="form-check-input" type="checkbox" data-bind="checked: UseRemoteOptionSource">
+                                <span>
+                                    <span class="checkLabel">Fetch options from a URL</span>
+                                    <small class="fieldHelp">AMP reads the list from a web API - a version list, a build index, and so on.</small>
+                                </span>
+                            </label>
+                        </div>
+                        <!-- ko if: UseToolDiscovery -->
+                        <!-- ko with: _ToolDiscovery -->
+                        <div class="subPanel" style="margin-top: 1rem;">
+                            <div class="fieldRow">
+                                <div class="field">
+                                    <label for="toolExecutableNameField">
+                                        Executable Name
+                                        <small class="fieldHelp">Without an extension. AMP appends .exe on Windows unless overridden.</small>
+                                    </label>
+                                    <input type="text" class="form-control" id="toolExecutableNameField" data-bind="value: ExecutableName" placeholder="java">
+                                </div>
+                                <div class="field">
+                                    <label for="toolWindowsExecutableField">
+                                        Windows Override
+                                        <small class="fieldHelp">Used instead on Windows.</small>
+                                    </label>
+                                    <input type="text" class="form-control" id="toolWindowsExecutableField" data-bind="value: WindowsExecutableName" placeholder="javaw.exe">
+                                </div>
+                                <div class="field">
+                                    <label for="toolLinuxExecutableField">
+                                        Linux Override
+                                        <small class="fieldHelp">Used instead on Linux.</small>
+                                    </label>
+                                    <input type="text" class="form-control" id="toolLinuxExecutableField" data-bind="value: LinuxExecutableName">
+                                </div>
+                            </div>
+                            <div class="fieldRow">
+                                <div class="field">
+                                    <label for="toolSearchPathsField">
+                                        Search Paths
+                                        <small class="fieldHelp">One per line, every platform. Environment variables are expanded.</small>
+                                    </label>
+                                    <textarea class="form-control" rows="3" id="toolSearchPathsField" data-bind="value: _SearchPaths"></textarea>
+                                </div>
+                                <div class="field">
+                                    <label for="toolWindowsSearchPathsField">
+                                        Windows Search Paths
+                                        <small class="fieldHelp">One per line, Windows only.</small>
+                                    </label>
+                                    <textarea class="form-control" rows="3" id="toolWindowsSearchPathsField" data-bind="value: _WindowsSearchPaths" placeholder="%ProgramFiles%\Java"></textarea>
+                                </div>
+                                <div class="field">
+                                    <label for="toolLinuxSearchPathsField">
+                                        Linux Search Paths
+                                        <small class="fieldHelp">One per line, Linux only.</small>
+                                    </label>
+                                    <textarea class="form-control" rows="3" id="toolLinuxSearchPathsField" data-bind="value: _LinuxSearchPaths" placeholder="/usr/lib/jvm"></textarea>
+                                </div>
+                            </div>
+                            <div class="fieldRow">
+                                <div class="field narrow">
+                                    <label for="toolBinSubdirectoryField">
+                                        Bin Subdirectory
+                                        <small class="fieldHelp">Where the executable sits inside each install. Clear it if it is at the root.</small>
+                                    </label>
+                                    <input type="text" class="form-control" id="toolBinSubdirectoryField" data-bind="value: BinSubdirectory" placeholder="bin">
+                                </div>
+                                <div class="field">
+                                    <label for="toolVersionRegexField">
+                                        Version Expression
+                                        <small class="fieldHelp">Applied to each install directory name. Named groups feed the display format.</small>
+                                    </label>
+                                    <input type="text" class="form-control" id="toolVersionRegexField" data-bind="value: VersionRegex" placeholder="java-(?&lt;version&gt;\d+)-(?&lt;vendor&gt;\w+)">
+                                </div>
+                                <div class="field">
+                                    <label for="toolDisplayFormatField">
+                                        Display Format
+                                        <small class="fieldHelp">How each entry is labelled, referencing the named groups as {groupName}.</small>
+                                    </label>
+                                    <input type="text" class="form-control" id="toolDisplayFormatField" data-bind="value: DisplayFormat" placeholder="Java {version} ({vendor})">
+                                </div>
+                            </div>
+                            <div class="fieldRow">
+                                <div class="field">
+                                    <label for="toolDefaultEntryNameField">
+                                        PATH Entry Label
+                                        <small class="fieldHelp">What the copy found on the system PATH is called.</small>
+                                    </label>
+                                    <input type="text" class="form-control" id="toolDefaultEntryNameField" data-bind="value: DefaultEntryDisplayName" placeholder="System Default">
+                                </div>
+                                <div class="field">
+                                    <label for="toolNotFoundValueField">
+                                        Nothing Found Value
+                                        <small class="fieldHelp">Offered when no installation turns up at all. Left out if blank.</small>
+                                    </label>
+                                    <input type="text" class="form-control" id="toolNotFoundValueField" data-bind="value: NotFoundValue">
+                                </div>
+                                <div class="field">
+                                    <label for="toolCustomPathSettingField">
+                                        Custom Path Setting
+                                        <small class="fieldHelp">The field name of another setting holding a path the user typed in.</small>
+                                    </label>
+                                    <input type="text" class="form-control" id="toolCustomPathSettingField" data-bind="value: CustomPathSetting">
+                                </div>
+                                <div class="field">
+                                    <label for="toolCustomPathDisplayField">
+                                        Custom Path Label
+                                        <small class="fieldHelp">What that entry is called.</small>
+                                    </label>
+                                    <input type="text" class="form-control" id="toolCustomPathDisplayField" data-bind="value: CustomPathDisplayName" placeholder="Custom Installation">
+                                </div>
+                            </div>
+                            <div class="checkRow">
+                                <label class="checkTile">
+                                    <input class="form-check-input" type="checkbox" data-bind="checked: FallbackToPathEnv">
+                                    <span>
+                                        <span class="checkLabel">Fall back to PATH</span>
+                                        <small class="fieldHelp">Search PATH when no versioned install directories are found.</small>
+                                    </span>
+                                </label>
+                            </div>
+                        </div>
+                        <!-- /ko -->
+                        <!-- /ko -->
+                        <!-- ko if: UseRemoteOptionSource -->
+                        <!-- ko with: _RemoteOptionSource -->
+                        <div class="subPanel" style="margin-top: 1rem;">
+                            <div class="fieldRow">
+                                <div class="field wide">
+                                    <label for="remoteUrlField">
+                                        URL
+                                        <small class="fieldHelp">Supports {FieldName} substitution from the other settings.</small>
+                                    </label>
+                                    <input type="text" class="form-control" id="remoteUrlField" data-bind="value: Url" placeholder="https://example.com/api/versions">
+                                </div>
+                                <div class="field narrow">
+                                    <label for="remoteResponseFormatField">
+                                        Response Format
+                                        <small class="fieldHelp">How the response is read.</small>
+                                    </label>
+                                    <select class="form-select" id="remoteResponseFormatField" data-bind="value: ResponseFormat">
+                                        <option value="json">JSON</option>
+                                        <option value="xml">XML</option>
+                                        <option value="regex">Regular Expression</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="fieldRow">
+                                <div class="field" data-bind="visible: ResponseFormat() != 'regex'">
+                                    <label for="remoteResultPathField">
+                                        Result Path
+                                        <small class="fieldHelp">JSONPath to the array of results, or an XPath to the result nodes.</small>
+                                    </label>
+                                    <input type="text" class="form-control" id="remoteResultPathField" data-bind="value: ResultPath" placeholder="versions">
+                                </div>
+                                <div class="field">
+                                    <label for="remoteValueFieldField">
+                                        Value Field
+                                        <small class="fieldHelp">The field, attribute or named group holding the value that gets stored.</small>
+                                    </label>
+                                    <input type="text" class="form-control" id="remoteValueFieldField" data-bind="value: ValueField" placeholder="id">
+                                </div>
+                                <div class="field">
+                                    <label for="remoteLabelFieldField">
+                                        Label Field
+                                        <small class="fieldHelp">What the user sees. Falls back to the value field if blank.</small>
+                                    </label>
+                                    <input type="text" class="form-control" id="remoteLabelFieldField" data-bind="value: LabelField" placeholder="name">
+                                </div>
+                            </div>
+                            <div class="fieldRow" data-bind="visible: ResponseFormat() == 'regex'">
+                                <div class="field full">
+                                    <label for="remoteRegexPatternField">
+                                        Expression
+                                        <small class="fieldHelp">Applied to the whole response body. Named groups map onto the value and label fields above.</small>
+                                    </label>
+                                    <input type="text" class="form-control" id="remoteRegexPatternField" data-bind="value: RegexPattern">
+                                </div>
+                            </div>
+                            <div class="fieldRow">
+                                <div class="field narrow">
+                                    <label for="remoteSortOrderField">
+                                        Sort Order
+                                        <small class="fieldHelp">Applied after the results are read.</small>
+                                    </label>
+                                    <select class="form-select" id="remoteSortOrderField" data-bind="value: SortOrder">
+                                        <option value="">API's order</option>
+                                        <option value="asc">Ascending</option>
+                                        <option value="desc">Descending</option>
+                                    </select>
+                                </div>
+                                <div class="field narrow">
+                                    <label for="remoteCacheSecondsField">
+                                        Cache Duration
+                                        <small class="fieldHelp">In seconds. 0 fetches every time.</small>
+                                    </label>
+                                    <input type="number" step="1" min="0" class="form-control" id="remoteCacheSecondsField" data-bind="value: CacheSeconds" placeholder="3600">
+                                </div>
+                                <div class="field">
+                                    <label for="remoteNotFoundValueField">
+                                        Nothing Found Value
+                                        <small class="fieldHelp">Offered when the request returns no results.</small>
+                                    </label>
+                                    <input type="text" class="form-control" id="remoteNotFoundValueField" data-bind="value: NotFoundValue" placeholder="Not Available">
+                                </div>
+                                <div class="field">
+                                    <label for="remoteUserAgentField">
+                                        User Agent
+                                        <small class="fieldHelp">Blank sends CubeCoders/AMP_DLM.</small>
+                                    </label>
+                                    <input type="text" class="form-control" id="remoteUserAgentField" data-bind="value: UserAgent">
+                                </div>
+                            </div>
+                            <div class="fieldRow">
+                                <div class="field">
+                                    <label for="remotePrependItemsField">
+                                        Prepended Options
+                                        <small class="fieldHelp">JSON object of value to label, placed above the fetched results.</small>
+                                    </label>
+                                    <textarea class="form-control" rows="3" id="remotePrependItemsField" data-bind="value: _PrependItems" placeholder='{ "latest": "Latest" }'></textarea>
+                                </div>
+                                <div class="field">
+                                    <label for="remoteHeadersField">
+                                        Request Headers
+                                        <small class="fieldHelp">JSON object of header name to value.</small>
+                                    </label>
+                                    <textarea class="form-control" rows="3" id="remoteHeadersField" data-bind="value: _Headers" placeholder='{ "Accept": "application/json" }'></textarea>
+                                </div>
+                            </div>
+                            <div class="checkRow">
+                                <label class="checkTile">
+                                    <input class="form-check-input" type="checkbox" data-bind="checked: RefreshOnStartup">
+                                    <span>
+                                        <span class="checkLabel">Refresh on startup</span>
+                                        <small class="fieldHelp">Fetch the list when the module starts rather than waiting for the page to ask.</small>
+                                    </span>
+                                </label>
+                            </div>
+                        </div>
+                        <!-- /ko -->
+                        <!-- /ko -->
+                    </div>
+
+                    <div class="modalSection">
+                        <div class="modalSectionTitle">Actions</div>
+                        <div class="modalSectionHelp">Buttons AMP shows alongside the setting. Each one calls a method on a module - leave the module blank for the one that owns the setting.</div>
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Module</th>
+                                    <th scope="col">Method</th>
+                                    <th scope="col">Caption</th>
+                                    <th scope="col">Argument</th>
+                                    <th scope="col">Client Side</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- ko foreach: _Actions -->
+                                <tr>
+                                    <td><input type="text" data-bind="value: Module"></td>
+                                    <td><input type="text" data-bind="value: Method"></td>
+                                    <td><input type="text" data-bind="value: Caption"></td>
+                                    <td><input type="text" data-bind="value: Argument"></td>
+                                    <td><input type="checkbox" class="form-check-input" data-bind="checked: IsClientSide"></td>
+                                    <td style="text-align: right;">
+                                        <button type="button" class="btn btn-danger" data-bind="click: __RemoveAction">
+                                            Delete
+                                        </button>
+                                    </td>
+                                </tr>
+                                <!-- /ko -->
+                                <!-- ko if: _Actions().length == 0 -->
+                                <tr>
+                                    <td colspan="6">No actions have been added.</td>
+                                </tr>
+                                <!-- /ko -->
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td><input type="text" data-bind="value: __NewActionModule"></td>
+                                    <td><input type="text" data-bind="value: __NewActionMethod"></td>
+                                    <td><input type="text" data-bind="value: __NewActionCaption"></td>
+                                    <td colspan="2"></td>
+                                    <td style="text-align: right;">
+                                        <button type="button" class="btn btn-primary" data-bind="click: __AddAction">
+                                            Add Action
+                                        </button>
+                                    </td>
+                                </tr>
+                            </tfoot>
+                        </table>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -1266,7 +1827,7 @@
     </div>
 
     <div class="modal fade" tabindex="-1" role="dialog" id="addEditStageModal" data-bs-backdrop="static" data-bind="with: __AddEditStage">
-        <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable" role="document">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" data-bind="text: __vm.__IsEditingStage() ? 'Edit Stage' : 'Add New Stage'"></h5>
@@ -1275,326 +1836,172 @@
                     </button>
                 </div>
                 <div class="modal-body">
-                    <h5 class="modal-title">Source Type Details</h5>
-                    <ul>
-                        <li>CopyFilePath - Copies a file from one directory to another.</li>
-                        <li>CreateSymlink - Linux only, Creates a symlink pointing to the file/directory listed.</li>
-                        <li>Executable - Runs an executable/shell script (not bat files!)</li>
-                        <li>ExtractArchive - Extracts a zip archive.</li>
-                        <li>FetchURL - Downloads from a fixed URL. Used with CopyFilePath to move the file.</li>
-                        <li>GithubRelease - Downloads the release version specified (latest if omitted).</li>
-                        <li>SetExecutableFlag - Linux only, marks the filename as executable.</li>
-                        <li>StartApplication - Starts the game server one time. Useful if a game generates config files on first run.</li>
-                        <li>SteamCMD - Downloads an application by the Steam App ID.</li>
-                    </ul><hr />
-                    <div class="row">
-                        <div class="mb-3 col-6">
-                            <label for="stageSourceTypeField">
-                                Source Type
-                            </label>
-                            <select class="form-select" id="stageSourceTypeField" data-bind="value: _UpdateSource">
-                                <option value="0">CopyFilePath</option>
-                                <option value="1">CreateSymlink</option>
-                                <option value="2">Executable</option>
-                                <option value="3">ExtractArchive</option>
-                                <option value="4">FetchURL</option>
-                                <option value="5">GithubRelease</option>
-                                <option value="6">SetExecutableFlag</option>
-                                <option value="7">StartApplication</option>
-                                <option value="8">SteamCMD</option>
-                            </select>
-                        </div>
-                        <div class="mb-3 col-6">
-                            <label for="stageNamField">
-                                Stage Name
-                                <small class="d-block text-muted">
-                                    This will show as the notification while updating.
-                                </small>
-                            </label>
-                            <input type="text" class="form-control" id="stageNameField" data-bind="value: UpdateStageName, validationElement: UpdateStageName" placeholder="Config File Download" required>
+                    <!-- ko if: __IsUnknown -->
+                    <div class="alert alert-warning">
+                        This stage uses the <strong data-bind="text: _Unknown().UpdateSource"></strong> step type, which this version of the generator doesn't know about.
+                        It was imported exactly as it was written and will be downloaded again unchanged, so nothing is lost - but it can't be edited here.
+                    </div>
+                    <!-- /ko -->
+                    <!-- ko ifnot: __IsUnknown -->
+                    <div class="modalSection">
+                        <div class="modalSectionTitle">Stage</div>
+                        <hr class="modalSectionRule" />
+                        <div class="fieldRow">
+                            <div class="field">
+                                <label for="stageSourceTypeField">
+                                    Source Type
+                                    <small class="fieldHelp" data-bind="text: __Description"></small>
+                                </label>
+                                <select class="form-select" id="stageSourceTypeField" data-bind="options: __SourceTypeOptions, optionsText: 'name', optionsValue: 'name', value: _UpdateSource"></select>
+                            </div>
+                            <div class="field">
+                                <label for="stageNameField">
+                                    Stage Name
+                                    <small class="fieldHelp">Shown as the notification while the stage runs.</small>
+                                </label>
+                                <input type="text" class="form-control" id="stageNameField" data-bind="value: UpdateStageName" placeholder="Config File Download">
+                            </div>
+                            <div class="field">
+                                <label for="stageDescriptionField">
+                                    Stage Description
+                                    <small class="fieldHelp">Shown under the name on an Executable stage's task.</small>
+                                </label>
+                                <input type="text" class="form-control" id="stageDescriptionField" data-bind="value: UpdateStageDescription" placeholder="Generating the initial configuration">
+                            </div>
                         </div>
                     </div>
-                    <div class="row">
-                        <div class="mb-3 col-6">
-                            <label for="stageSourcePlatformField">
-                                Platform
-                                <small class="d-block text-muted">
-                                    The OS the stage should be run on.
-                                </small>
-                            </label>
-                            <select class="form-select" id="stageSourcePlatformField" data-bind="value: _UpdateSourcePlatform">
-                                <option value="0">All</option>
-                                <option value="1">Linux</option>
-                                <option value="2">Windows</option>
-                            </select>
-                        </div>
-                        <div class="mb-3 col-6">
-                            <label for="stageConditionField">
-                                Condition Setting
-                                <small class="d-block text-muted">
-                                    Run this stage based on another setting. Place the variable name here and the value in Condition Value.
-                                </small>
-                            </label>
-                            <input type="text" class="form-control" id="stageConditionField" data-bind="value: UpdateSourceConditionSetting" placeholder="GitHubDownload">
+
+                    <div class="modalSection">
+                        <div class="modalSectionTitle">When It Runs</div>
+                        <div class="modalSectionHelp">AMP drops the stage entirely on any platform or architecture it doesn't match.</div>
+                        <div class="fieldRow">
+                            <div class="field narrow">
+                                <label for="stageSourcePlatformField">
+                                    Platform
+                                    <small class="fieldHelp">The OS this stage runs on.</small>
+                                </label>
+                                <select class="form-select" id="stageSourcePlatformField" data-bind="value: _UpdateSourcePlatform">
+                                    <option value="0">All</option>
+                                    <option value="1">Linux</option>
+                                    <option value="2">Windows</option>
+                                </select>
+                            </div>
+                            <div class="field narrow">
+                                <label for="stageSourceArchField">
+                                    Architecture
+                                    <small class="fieldHelp">The CPU architecture it runs on.</small>
+                                </label>
+                                <select class="form-select" id="stageSourceArchField" data-bind="value: UpdateSourceArch">
+                                    <option value="All">All</option>
+                                    <option value="x86_64">x86_64</option>
+                                    <option value="aarch64">aarch64</option>
+                                </select>
+                            </div>
+                            <div class="field narrow" data-bind="visible: __ShowForcePlatform()">
+                                <label for="stageForcePlatformField">
+                                    Force Download Platform
+                                    <small class="fieldHelp">Steam fetches this OS's build. For Wine/Proton.</small>
+                                </label>
+                                <select class="form-select" id="stageForcePlatformField" data-bind="value: _ForceDownloadPlatform">
+                                    <option value="0">N/A</option>
+                                    <option value="1">Linux</option>
+                                    <option value="2">Windows</option>
+                                </select>
+                            </div>
+                            <div class="field">
+                                <label for="stageConditionField">
+                                    Condition Setting
+                                    <small class="fieldHelp">Only run when this setting has the value alongside.</small>
+                                </label>
+                                <input type="text" class="form-control" id="stageConditionField" data-bind="value: UpdateSourceConditionSetting" placeholder="GitHubDownload">
+                            </div>
+                            <div class="field">
+                                <label for="stageConditionValueField">
+                                    Condition Value
+                                    <small class="fieldHelp">Matched exactly, or the stage is skipped.</small>
+                                </label>
+                                <input type="text" class="form-control" id="stageConditionValueField" data-bind="value: UpdateSourceConditionValue" placeholder="true">
+                            </div>
                         </div>
                     </div>
-                    <div class="row">
-                        <div class="mb-3 col-6">
-                            <label for="stageConditionValueField">
-                                Condition Value
-                                <small class="d-block text-muted">
-                                    The value of the Condition Setting that allows this stage to run.
-                                </small>
-                            </label>
-                            <input type="text" class="form-control" id="stageConditionValueField" data-bind="value: UpdateSourceConditionValue" placeholder="true">
+
+                    <div class="modalSection">
+                        <div class="modalSectionTitle">Details</div>
+                        <hr class="modalSectionRule" />
+                        <!-- ko if: __Fields().length == 0 -->
+                        <div class="modalSectionHelp">This step type takes no further details.</div>
+                        <!-- /ko -->
+                        <div class="fieldRow" data-bind="foreach: __Fields">
+                            <div class="field">
+                                <label>
+                                    <span data-bind="text: label"></span>
+                                    <small class="fieldHelp" data-bind="text: help"></small>
+                                </label>
+                                <input type="text" class="form-control" data-bind="value: $parent[key], attr: { placeholder: placeholder }">
+                            </div>
                         </div>
-                        <div class="mb-3 col-6">
-                            <label class="list-group-item d-flex gap-2" style="flex: 1">
-                                <input class="form-check-input flex-shrink-0" type="checkbox" data-bind="checked: OneShot">
+                    </div>
+
+                    <div class="modalSection">
+                        <div class="modalSectionTitle">Options</div>
+                        <hr class="modalSectionRule" />
+                        <div class="checkRow">
+                            <label class="checkTile" data-bind="visible: __ShowUnzip()">
+                                <input class="form-check-input" type="checkbox" data-bind="checked: UnzipUpdateSource">
                                 <span>
-                                    One Shot
-                                    <small class="d-block text-muted">
-                                        The update stage runs once and never again.
-                                    </small>
+                                    <span class="checkLabel">Unzip source</span>
+                                    <small class="fieldHelp">Extract the file once it has been fetched.</small>
                                 </span>
                             </label>
-                        </div>
-                    </div><hr />
-                    <div class="row">
-                        <div class="mb-3 col-6" data-bind="visible: _UpdateSource() == '4'">
-                            <label for="stageSourceDataField">
-                                Stage Data
-                                <small class="d-block text-muted">
-                                    The URL of the file to download.
-                                </small>
-                            </label>
-                            <input type="text" class="form-control" id="stageSourceDataField" data-bind="value: UpdateSourceData" placeholder="https://raw.githubusercontent.com/CubeCoders/AMPTemplates/main/terrariaserverconfig.txt">
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="mb-3 col-6" data-bind="visible: _UpdateSource() == '0'">
-                            <label for="stageArgsField">
-                                Stage Args
-                                <small class="d-block text-muted">
-                                    Source File to copy including the Root Directory.
-                                </small>
-                            </label>
-                            <input type="text" class="form-control" id="stageArgsField" data-bind="value: UpdateSourceArgs" placeholder="./v-rising/1829350/file.txt">
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="mb-3 col-6" data-bind="visible: _UpdateSource() == '1'">
-                            <label for="stageArgsField">
-                                Stage Args
-                                <small class="d-block text-muted">
-                                    The file/directory to create a symlink of including the Root Directory.
-                                </small>
-                            </label>
-                            <input type="text" class="form-control" id="stageArgsField" data-bind="value: UpdateSourceArgs" placeholder="./v-rising/1829350/file.txt">
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="mb-3 col-6" data-bind="visible: _UpdateSource() == '2'">
-                            <label for="stageArgsField">
-                                Stage Args
-                                <small class="d-block text-muted">
-                                    The arguments to append to the executable.
-                                </small>
-                            </label>
-                            <input type="text" class="form-control" id="stageArgsField" data-bind="value: UpdateSourceArgs" placeholder="-config -force">
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="mb-3 col-6" data-bind="visible: _UpdateSource() == '3'">
-                            <label for="stageArgsField">
-                                Stage Args
-                                <small class="d-block text-muted">
-                                    The zip file to extract including the Root Directory.
-                                </small>
-                            </label>
-                            <input type="text" class="form-control" id="stageArgsField" data-bind="value: UpdateSourceArgs" placeholder="./pk/374040/dedicated_server.zip">
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="mb-3 col-6" data-bind="visible: _UpdateSource() == '5'">
-                            <label for="stageArgsField">
-                                Stage Args
-                                <small class="d-block text-muted">
-                                    The GitHub repo to download the release from.
-                                </small>
-                            </label>
-                            <input type="text" class="form-control" id="stageArgsField" data-bind="value: UpdateSourceArgs" placeholder="tModLoader/tModLoader">
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="mb-3 col-6" data-bind="visible: _UpdateSource() == '6'">
-                            <label for="stageArgsField">
-                                Stage Args
-                                <small class="d-block text-muted">
-                                    The file to mark executable.
-                                </small>
-                            </label>
-                            <input type="text" class="form-control" id="stageArgsField" data-bind="value: UpdateSourceArgs" placeholder="dedicated_server.x86_64">
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="mb-3 col-6" data-bind="visible: _UpdateSource() == '8'">
-                            <label for="stageArgsField">
-                                Stage Args
-                                <small class="d-block text-muted">
-                                    The App ID of the Steam game client. You can find this via <a href="https://steamdb.info" target="_blank">SteamDB</a>.
-                                </small>
-                            </label>
-                            <input type="text" class="form-control" id="stageArgsField" data-bind="value: UpdateSourceArgs" placeholder="892970">
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="mb-3 col-6" data-bind="visible: _UpdateSource() == '1'">
-                            <label for="stageSourceDataField">
-                                Stage Data
-                                <small class="d-block text-muted">
-                                    The location to place the symlink including the Root Directory.
-                                </small>
-                            </label>
-                            <input type="text" class="form-control" id="stageSourceDataField" data-bind="value: UpdateSourceData" placeholder="./v-rising/1829350/save/config.cfg">
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="mb-3 col-6" data-bind="visible: _UpdateSource() == '2'">
-                            <label for="stageSourceDataField">
-                                Stage Data
-                                <small class="d-block text-muted">
-                                    The location and name of the executable including the Root Directory.
-                                </small>
-                            </label>
-                            <input type="text" class="form-control" id="stageSourceDataField" data-bind="value: UpdateSourceData" placeholder="./v-rising/1829350/save/config.cfg">
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="mb-3 col-6" data-bind="visible: _UpdateSource() == '5'">
-                            <label for="stageSourceDataField">
-                                Stage Data
-                                <small class="d-block text-muted">
-                                    The file to download from the release.
-                                </small>
-                            </label>
-                            <input type="text" class="form-control" id="stageSourceDataField" data-bind="value: UpdateSourceData" placeholder="tModLoader.zip">
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="mb-3 col-6" data-bind="visible: _UpdateSource() == '0'">
-                            <label for="stageSourceDataField">
-                                Stage Data
-                                <small class="d-block text-muted">
-                                    The destination file location/name including the Root Directory.
-                                </small>
-                            </label>
-                            <input type="text" class="form-control" id="stageSourceDataField" data-bind="value: UpdateSourceData" placeholder="https://raw.githubusercontent.com/CubeCoders/AMPTemplates/main/terrariaserverconfig.txt">
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="mb-3 col-6" data-bind="visible: _UpdateSource() == '8'">
-                            <label for="stageSourceDataField">
-                                Stage Data
-                                <small class="d-block text-muted">
-                                    The App ID of the application to download. You can find this via <a href="https://steamdb.info" target="_blank">SteamDB</a>.
-                                </small>
-                            </label>
-                            <input type="text" class="form-control" id="stageSourceDataField" data-bind="value: UpdateSourceData" placeholder="896660">
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="mb-3 col-6" data-bind="visible: _UpdateSource() == '8'">
-                            <label for="stageSourceVersionField">
-                                Source Version
-                                <small class="d-block text-muted">
-                                    The branch to download from. Can be hardcoded or the Field Name of an input. Public branch if left blank.
-                                </small>
-                            </label>
-                            <input type="text" class="form-control" id="stageSourceVersionField" data-bind="value: UpdateSourceVersion" placeholder="{{ReleaseStream}}">
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="mb-3 col-6" data-bind="visible: _UpdateSource() == '8'">
-                            <label for="stageForcePlatformField">
-                                Force Download Platform
-                                <small class="d-block text-muted">
-                                    Forces Steam to download the version for this OS. (Useful for Wine/Proton)
-                                </small>
-                            </label>
-                            <select class="form-select" id="stageForcePlatformField" data-bind="value: _ForceDownloadPlatform">
-                                <option value="0">N/A</option>
-                                <option value="1">Linux</option>
-                                <option value="2">Windows</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="mb-3 col-6" data-bind="visible: _UpdateSource() == '0' || _UpdateSource() == '4'">
-                            <label for="stageTargetField">
-                                Source Target
-                                <small class="d-block text-muted">
-                                    Where to download relative to the Root Directory.
-                                </small>
-                            </label>
-                            <input type="text" class="form-control" id="stageTargetField" data-bind="value: UpdateSourceTarget" placeholder="serverfiles">
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="mb-3 col-6" data-bind="visible: _UpdateSource() == '3'">
-                            <label for="stageTargetField">
-                                Source Target
-                                <small class="d-block text-muted">
-                                    Where to extract the file to relative to Root Directory.
-                                </small>
-                            </label>
-                            <input type="text" class="form-control" id="stageTargetField" data-bind="value: UpdateSourceTarget" placeholder="./pk/374040/">
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="mb-3 col-6" data-bind="visible: _UpdateSource() == '0' || _UpdateSource() == '4'">
-                            <label class="list-group-item d-flex gap-2" style="flex: 1">
-                                <input class="form-check-input flex-shrink-0" type="checkbox" data-bind="checked: UnzipUpdateSource">
+                            <label class="checkTile" data-bind="visible: __ShowOverwrite()">
+                                <input class="form-check-input" type="checkbox" data-bind="checked: OverwriteExistingFiles">
                                 <span>
-                                    Unzip Source
-                                    <small class="d-block text-muted">
-                                        Whether the file is unzipped during this stage.
-                                    </small>
+                                    <span class="checkLabel">Overwrite</span>
+                                    <small class="fieldHelp">Replace files that are already there. Without this an existing file is left alone.</small>
+                                </span>
+                            </label>
+                            <label class="checkTile" data-bind="visible: __ShowDeleteAfterExtract()">
+                                <input class="form-check-input" type="checkbox" data-bind="checked: DeleteAfterExtract">
+                                <span>
+                                    <span class="checkLabel">Delete after extract</span>
+                                    <small class="fieldHelp">Remove the archive once it has been extracted, to save space.</small>
+                                </span>
+                            </label>
+                            <label class="checkTile" data-bind="visible: __ShowRunInBackground()">
+                                <input class="form-check-input" type="checkbox" data-bind="checked: RunInBackground">
+                                <span>
+                                    <span class="checkLabel">Run in background</span>
+                                    <small class="fieldHelp">Leave it running and move on instead of waiting for it to finish.</small>
+                                </span>
+                            </label>
+                            <label class="checkTile" data-bind="visible: __ShowProcessToolOutput()">
+                                <input class="form-check-input" type="checkbox" data-bind="checked: ProcessToolOutput">
+                                <span>
+                                    <span class="checkLabel">Process tool output</span>
+                                    <small class="fieldHelp">Run what it prints through this application's console expressions rather than printing it raw.</small>
+                                </span>
+                            </label>
+                            <label class="checkTile">
+                                <input class="form-check-input" type="checkbox" data-bind="checked: SkipOnFailure">
+                                <span>
+                                    <span class="checkLabel">Continue on failure</span>
+                                    <small class="fieldHelp">Carry on to the next stage instead of failing the whole update.</small>
+                                </span>
+                            </label>
+                            <label class="checkTile">
+                                <input class="form-check-input" type="checkbox" data-bind="checked: OneShot">
+                                <span>
+                                    <span class="checkLabel">One shot</span>
+                                    <small class="fieldHelp">Runs once and is then removed, so it never runs again.</small>
                                 </span>
                             </label>
                         </div>
                     </div>
-                    <div class="row">
-                        <div class="mb-3 col-6" data-bind="visible: _UpdateSource() == '0' || _UpdateSource() == '4'">
-                            <label class="list-group-item d-flex gap-2" style="flex: 1">
-                                <input class="form-check-input flex-shrink-0" type="checkbox" data-bind="checked: OverwriteExistingFiles">
-                                <span>
-                                    Overwrite
-                                    <small class="d-block text-muted">
-                                        Existing files will be overwritten when Update is performed.
-                                    </small>
-                                </span>
-                            </label>
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="mb-3 col-6" data-bind="visible: _UpdateSource() == '0' || _UpdateSource() == '4'">
-                            <label class="list-group-item d-flex gap-2" style="flex: 1">
-                                <input class="form-check-input flex-shrink-0" type="checkbox" data-bind="checked: DeleteAfterExtract">
-                                <span>
-                                    Delete After Extract
-                                    <small class="d-block text-muted">
-                                        Remove the original file to save space.
-                                    </small>
-                                </span>
-                            </label>
-                        </div>
-                    </div>
+                    <!-- /ko -->
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-primary" data-bind="visible: !__vm.__IsEditingStage(), click: __vm.__DoAddStage">
-                        Add New
-                        Stage
+                        Add New Stage
                     </button>
                     <button type="button" class="btn btn-secondary" data-bind="click: __vm.__CloseStage">
                         Close
