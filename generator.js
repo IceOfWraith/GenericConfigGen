@@ -206,7 +206,6 @@ class generatorViewModel {
         //this.Meta_ExtraContainerPackages = ko.observable("");
         //this.Meta_ConfigReleaseState = ko.observable("NotSpecified");
         //this.Meta_NoCommercialUsage = ko.observable("False");
-        this.Meta_EndpointURIFormat = ko.observable(`steam://connect/{ip}:{GenericModule.App.Ports.$SteamQueryPort}`);
         this.Meta_AppConfigId = ko.observable(newGuid());
 
         this._SupportsWindows = ko.observable(true);
@@ -310,6 +309,12 @@ class generatorViewModel {
         this.Console_UserJoinRegex = ko.computed(() => WildcardToRegex(self._Console_UserJoinRegex()));
         this.Console_UserLeaveRegex = ko.computed(() => WildcardToRegex(self._Console_UserLeaveRegex()));
         this.Console_UserChatRegex = ko.computed(() => WildcardToRegex(self._Console_UserChatRegex()));
+        this.__QueryPortName = ko.computed(() => {
+            var queryPort = self._PortMappings().find(p => p._PortType() == "Steam Query Port");
+            return queryPort ? queryPort.Ref() : "";
+        });
+        this.Meta_EndpointURIFormat = ko.computed(() => self.__QueryPortName() != "" ? `steam://connect/{ip}:{GenericModule.App.Ports.$${self.__QueryPortName()}}` : "");
+
         this.__SanitizedName = ko.computed(() => self.Meta_DisplayName().replace(/\s+/g, "-").replace(/[^a-z\d-_]/ig, "").toLowerCase());
         this.Meta_OS = ko.computed(() => (self._SupportsWindows() ? 1 : 0) | (self._SupportsLinux() ? 2 : 0));
         this.Meta_ConfigManifest = ko.computed(() => self.__SanitizedName() + "config.json");
